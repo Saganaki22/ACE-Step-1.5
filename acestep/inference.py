@@ -797,3 +797,188 @@ def understand_music(
             success=False,
             error=str(e),
         )
+
+
+@dataclass
+class CreateSampleResult:
+    """Result of creating a music sample from a natural language query.
+    
+    This is used by the "Simple Mode" / "Inspiration Mode" feature where users
+    provide a natural language description and the LLM generates a complete
+    sample with caption, lyrics, and metadata.
+    
+    Attributes:
+        # Metadata Fields
+        caption: Generated detailed music description/caption
+        lyrics: Generated lyrics (or "[Instrumental]" for instrumental music)
+        bpm: Beats per minute (None if not generated)
+        duration: Duration in seconds (None if not generated)
+        keyscale: Musical key (e.g., "C Major")
+        language: Vocal language code (e.g., "en", "zh")
+        timesignature: Time signature (e.g., "4")
+        instrumental: Whether this is an instrumental piece
+        
+        # Status
+        status_message: Status message from sample creation
+        success: Whether sample creation completed successfully
+        error: Error message if sample creation failed
+    """
+    # Metadata Fields
+    caption: str = ""
+    lyrics: str = ""
+    bpm: Optional[int] = None
+    duration: Optional[float] = None
+    keyscale: str = ""
+    language: str = ""
+    timesignature: str = ""
+    instrumental: bool = False
+    
+    # Status
+    status_message: str = ""
+    success: bool = True
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert result to dictionary for JSON serialization."""
+        return asdict(self)
+
+
+def create_sample(
+    llm_handler,
+    query: str,
+    instrumental: bool = False,
+    vocal_language: Optional[List[str]] = None,
+    temperature: float = 0.85,
+    top_k: Optional[int] = None,
+    top_p: Optional[float] = None,
+    repetition_penalty: float = 1.0,
+    use_constrained_decoding: bool = True,
+    constrained_decoding_debug: bool = False,
+) -> CreateSampleResult:
+    """Create a music sample from a natural language query using the 5Hz Language Model.
+    
+    This is the "Simple Mode" / "Inspiration Mode" feature that takes a user's natural
+    language description of music and generates a complete sample including:
+    - Detailed caption/description
+    - Lyrics (unless instrumental)
+    - Metadata (BPM, duration, key, language, time signature)
+    
+    Note: cfg_scale and negative_prompt are not supported in create_sample mode.
+    
+    Args:
+        llm_handler: Initialized LLM handler (LLMHandler instance)
+        query: User's natural language music description (e.g., "a soft Bengali love song")
+        instrumental: Whether to generate instrumental music (no vocals)
+        vocal_language: List of allowed vocal languages for constrained decoding (e.g., ["en", "zh"]).
+                       If provided, the model will be constrained to generate lyrics in these languages.
+                       If None or ["unknown"], no language constraint is applied.
+        temperature: Sampling temperature for generation (0.0-2.0). Higher = more creative.
+        top_k: Top-K sampling (None or 0 = disabled)
+        top_p: Top-P (nucleus) sampling (None or 1.0 = disabled)
+        repetition_penalty: Repetition penalty (1.0 = no penalty)
+        use_constrained_decoding: Whether to use FSM-based constrained decoding
+        constrained_decoding_debug: Whether to enable debug logging
+        
+    Returns:
+        CreateSampleResult with generated sample fields and status
+        
+    Example:
+        >>> result = create_sample(llm_handler, "a soft Bengali love song for a quiet evening", vocal_language=["bn"])
+        >>> if result.success:
+        ...     print(f"Caption: {result.caption}")
+        ...     print(f"Lyrics: {result.lyrics}")
+        ...     print(f"BPM: {result.bpm}")
+    """
+    # Check if LLM is initialized
+    if not llm_handler.llm_initialized:
+        return CreateSampleResult(
+            status_message="5Hz LM not initialized. Please initialize it first.",
+            success=False,
+            error="LLM not initialized",
+        )
+    
+    # Validate query
+    if not query or not query.strip():
+        return CreateSampleResult(
+            status_message="No query provided. Please enter a music description.",
+            success=False,
+            error="Empty query",
+        )
+    
+    try:
+        # Call LLM to create sample
+        metadata, status = llm_handler.create_sample_from_query(
+            query=query,
+            instrumental=instrumental,
+            vocal_language=vocal_language,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            use_constrained_decoding=use_constrained_decoding,
+            constrained_decoding_debug=constrained_decoding_debug,
+        )
+        
+        # Check if LLM returned empty metadata (error case)
+        if not metadata:
+            return CreateSampleResult(
+                status_message=status or "Failed to create sample",
+                success=False,
+                error=status or "Empty metadata returned",
+            )
+        
+        # Extract and convert fields
+        caption = metadata.get('caption', '')
+        lyrics = metadata.get('lyrics', '')
+        keyscale = metadata.get('keyscale', '')
+        language = metadata.get('language', metadata.get('vocal_language', ''))
+        timesignature = metadata.get('timesignature', '')
+        is_instrumental = metadata.get('instrumental', instrumental)
+        
+        # Convert BPM to int
+        bpm = None
+        bpm_value = metadata.get('bpm')
+        if bpm_value is not None and bpm_value != 'N/A' and bpm_value != '':
+            try:
+                bpm = int(bpm_value)
+            except (ValueError, TypeError):
+                pass
+        
+        # Convert duration to float
+        duration = None
+        duration_value = metadata.get('duration')
+        if duration_value is not None and duration_value != 'N/A' and duration_value != '':
+            try:
+                duration = float(duration_value)
+            except (ValueError, TypeError):
+                pass
+        
+        # Clean up N/A values
+        if keyscale == 'N/A':
+            keyscale = ''
+        if language == 'N/A':
+            language = ''
+        if timesignature == 'N/A':
+            timesignature = ''
+        
+        return CreateSampleResult(
+            caption=caption,
+            lyrics=lyrics,
+            bpm=bpm,
+            duration=duration,
+            keyscale=keyscale,
+            language=language,
+            timesignature=timesignature,
+            instrumental=is_instrumental,
+            status_message=status,
+            success=True,
+            error=None,
+        )
+        
+    except Exception as e:
+        logger.exception("Sample creation failed")
+        return CreateSampleResult(
+            status_message=f"Error: {str(e)}",
+            success=False,
+            error=str(e),
+        )

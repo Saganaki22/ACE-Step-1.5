@@ -13,7 +13,7 @@ from acestep.constants import (
     TASK_TYPES_BASE,
 )
 from acestep.gradio_ui.i18n import t
-from acestep.inference import understand_music
+from acestep.inference import understand_music, create_sample
 
 
 def load_metadata(file_obj):
@@ -252,6 +252,65 @@ def sample_example_smart(llm_handler, task_type: str, constrained_decoding_debug
     else:
         # LM not initialized, use examples directory
         return load_random_example(task_type)
+
+
+def load_random_simple_description():
+    """Load a random description from the simple_mode examples directory.
+    
+    Returns:
+        Tuple of (description, instrumental, vocal_language) for updating UI components
+    """
+    try:
+        # Get the project root directory
+        current_file = os.path.abspath(__file__)
+        # This file is in acestep/gradio_ui/events/, need 4 levels up to reach project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        
+        # Construct the examples directory path
+        examples_dir = os.path.join(project_root, "examples", "simple_mode")
+        
+        # Check if directory exists
+        if not os.path.exists(examples_dir):
+            gr.Warning(t("messages.simple_examples_not_found"))
+            return gr.update(), gr.update(), gr.update()
+        
+        # Find all JSON files in the directory
+        json_files = glob.glob(os.path.join(examples_dir, "*.json"))
+        
+        if not json_files:
+            gr.Warning(t("messages.simple_examples_empty"))
+            return gr.update(), gr.update(), gr.update()
+        
+        # Randomly select one file
+        selected_file = random.choice(json_files)
+        
+        # Read and parse JSON
+        try:
+            with open(selected_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Extract fields
+            description = data.get('description', '')
+            instrumental = data.get('instrumental', False)
+            vocal_language = data.get('vocal_language', ['unknown'])
+            
+            # Ensure vocal_language is a list
+            if isinstance(vocal_language, str):
+                vocal_language = [vocal_language]
+            
+            gr.Info(t("messages.simple_example_loaded", filename=os.path.basename(selected_file)))
+            return description, instrumental, vocal_language
+            
+        except json.JSONDecodeError as e:
+            gr.Warning(t("messages.example_failed", filename=os.path.basename(selected_file), error=str(e)))
+            return gr.update(), gr.update(), gr.update()
+        except Exception as e:
+            gr.Warning(t("messages.example_error", error=str(e)))
+            return gr.update(), gr.update(), gr.update()
+            
+    except Exception as e:
+        gr.Warning(t("messages.example_error", error=str(e)))
+        return gr.update(), gr.update(), gr.update()
 
 
 def refresh_checkpoints(dit_handler):
@@ -502,6 +561,24 @@ def handle_instrumental_checkbox(instrumental_checked, current_lyrics):
             return current_lyrics
 
 
+def handle_simple_instrumental_change(is_instrumental: bool):
+    """
+    Handle simple mode instrumental checkbox changes.
+    When checked: set vocal_language to ["unknown"] and disable editing.
+    When unchecked: enable vocal_language editing.
+    
+    Args:
+        is_instrumental: Whether instrumental checkbox is checked
+        
+    Returns:
+        gr.update for simple_vocal_language dropdown
+    """
+    if is_instrumental:
+        return gr.update(value=["unknown"], interactive=False)
+    else:
+        return gr.update(interactive=True)
+
+
 def update_audio_components_visibility(batch_size):
     """Show/hide individual audio components based on batch size (1-8)
     
@@ -530,5 +607,194 @@ def update_audio_components_visibility(batch_size):
     )
     
     return updates_row1 + updates_row2
+
+
+def handle_generation_mode_change(mode: str):
+    """
+    Handle generation mode change between Simple and Custom modes.
+    
+    In Simple mode:
+    - Show simple mode group (query input, instrumental checkbox, create button)
+    - Collapse caption and lyrics accordions
+    - Hide optional parameters accordion
+    - Disable generate button until sample is created
+    
+    In Custom mode:
+    - Hide simple mode group
+    - Expand caption and lyrics accordions
+    - Show optional parameters accordion
+    - Enable generate button
+    
+    Args:
+        mode: "simple" or "custom"
+        
+    Returns:
+        Tuple of updates for:
+        - simple_mode_group (visibility)
+        - caption_accordion (open state)
+        - lyrics_accordion (open state)
+        - generate_btn (interactive state)
+        - simple_sample_created (reset state)
+        - optional_params_accordion (visibility)
+    """
+    is_simple = mode == "simple"
+    
+    return (
+        gr.update(visible=is_simple),  # simple_mode_group
+        gr.update(open=not is_simple),  # caption_accordion - collapsed in simple, open in custom
+        gr.update(open=not is_simple),  # lyrics_accordion - collapsed in simple, open in custom
+        gr.update(interactive=not is_simple),  # generate_btn - disabled in simple until sample created
+        False,  # simple_sample_created - reset to False on mode change
+        gr.update(open=not is_simple),  # optional_params_accordion - hidden in simple mode
+    )
+
+
+def handle_create_sample(
+    llm_handler,
+    query: str,
+    instrumental: bool,
+    vocal_language: list,
+    lm_temperature: float,
+    lm_top_k: int,
+    lm_top_p: float,
+    constrained_decoding_debug: bool = False,
+):
+    """
+    Handle the Create Sample button click in Simple mode.
+    
+    Creates a sample from the user's query using the LLM, then populates
+    the caption, lyrics, and metadata fields.
+    
+    Note: cfg_scale and negative_prompt are not supported in create_sample mode.
+    
+    Args:
+        llm_handler: LLM handler instance
+        query: User's natural language music description
+        instrumental: Whether to generate instrumental music
+        vocal_language: List of preferred vocal languages for constrained decoding
+        lm_temperature: LLM temperature for generation
+        lm_top_k: LLM top-k sampling
+        lm_top_p: LLM top-p sampling
+        constrained_decoding_debug: Whether to enable debug logging
+        
+    Returns:
+        Tuple of updates for:
+        - captions
+        - lyrics
+        - bpm
+        - audio_duration
+        - key_scale
+        - vocal_language
+        - time_signature
+        - instrumental_checkbox
+        - caption_accordion (open)
+        - lyrics_accordion (open)
+        - generate_btn (interactive)
+        - simple_sample_created (True)
+        - think_checkbox (True)
+        - is_format_caption_state (True)
+        - status_output
+    """
+    # Validate query
+    if not query or not query.strip():
+        gr.Warning(t("messages.empty_query"))
+        return (
+            gr.update(),  # captions - no change
+            gr.update(),  # lyrics - no change
+            gr.update(),  # bpm - no change
+            gr.update(),  # audio_duration - no change
+            gr.update(),  # key_scale - no change
+            gr.update(),  # vocal_language - no change
+            gr.update(),  # time_signature - no change
+            gr.update(),  # instrumental_checkbox - no change
+            gr.update(),  # caption_accordion - no change
+            gr.update(),  # lyrics_accordion - no change
+            gr.update(interactive=False),  # generate_btn - keep disabled
+            False,  # simple_sample_created - still False
+            gr.update(),  # think_checkbox - no change
+            gr.update(),  # is_format_caption_state - no change
+            t("messages.empty_query"),  # status_output
+        )
+    
+    # Check if LLM is initialized
+    if not llm_handler.llm_initialized:
+        gr.Warning(t("messages.lm_not_initialized"))
+        return (
+            gr.update(),  # captions - no change
+            gr.update(),  # lyrics - no change
+            gr.update(),  # bpm - no change
+            gr.update(),  # audio_duration - no change
+            gr.update(),  # key_scale - no change
+            gr.update(),  # vocal_language - no change
+            gr.update(),  # time_signature - no change
+            gr.update(),  # instrumental_checkbox - no change
+            gr.update(),  # caption_accordion - no change
+            gr.update(),  # lyrics_accordion - no change
+            gr.update(interactive=False),  # generate_btn - keep disabled
+            False,  # simple_sample_created - still False
+            gr.update(),  # think_checkbox - no change
+            gr.update(),  # is_format_caption_state - no change
+            t("messages.lm_not_initialized"),  # status_output
+        )
+    
+    # Convert LM parameters
+    top_k_value = None if not lm_top_k or lm_top_k == 0 else int(lm_top_k)
+    top_p_value = None if not lm_top_p or lm_top_p >= 1.0 else lm_top_p
+    
+    # Call create_sample API
+    # Note: cfg_scale and negative_prompt are not supported in create_sample mode
+    result = create_sample(
+        llm_handler=llm_handler,
+        query=query,
+        instrumental=instrumental,
+        vocal_language=vocal_language,
+        temperature=lm_temperature,
+        top_k=top_k_value,
+        top_p=top_p_value,
+        use_constrained_decoding=True,
+        constrained_decoding_debug=constrained_decoding_debug,
+    )
+    
+    # Handle error
+    if not result.success:
+        gr.Warning(result.status_message or t("messages.sample_creation_failed"))
+        return (
+            gr.update(),  # captions - no change
+            gr.update(),  # lyrics - no change
+            gr.update(),  # bpm - no change
+            gr.update(),  # audio_duration - no change
+            gr.update(),  # key_scale - no change
+            gr.update(),  # vocal_language - no change
+            gr.update(),  # time_signature - no change
+            gr.update(),  # instrumental_checkbox - no change
+            gr.update(),  # caption_accordion - no change
+            gr.update(),  # lyrics_accordion - no change
+            gr.update(interactive=False),  # generate_btn - keep disabled
+            False,  # simple_sample_created - still False
+            gr.update(),  # think_checkbox - no change
+            gr.update(),  # is_format_caption_state - no change
+            result.status_message or t("messages.sample_creation_failed"),  # status_output
+        )
+    
+    # Success - populate fields
+    gr.Info(t("messages.sample_created"))
+    
+    return (
+        result.caption,  # captions
+        result.lyrics,  # lyrics
+        result.bpm,  # bpm
+        result.duration if result.duration and result.duration > 0 else -1,  # audio_duration
+        result.keyscale,  # key_scale
+        result.language,  # vocal_language
+        result.timesignature,  # time_signature
+        result.instrumental,  # instrumental_checkbox
+        gr.update(open=True),  # caption_accordion - expand
+        gr.update(open=True),  # lyrics_accordion - expand
+        gr.update(interactive=True),  # generate_btn - enable
+        True,  # simple_sample_created - True
+        True,  # think_checkbox - enable thinking
+        True,  # is_format_caption_state - True (LM-generated)
+        result.status_message,  # status_output
+    )
 
 

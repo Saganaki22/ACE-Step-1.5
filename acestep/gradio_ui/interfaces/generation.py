@@ -250,9 +250,64 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                                 minimum=-1,
                                 step=0.1,
                             )
+                    
+                    # Simple/Custom Mode Toggle
+                    with gr.Row():
+                        generation_mode = gr.Radio(
+                            choices=[
+                                (t("generation.mode_simple"), "simple"),
+                                (t("generation.mode_custom"), "custom"),
+                            ],
+                            value="simple",
+                            label=t("generation.mode_label"),
+                            info=t("generation.mode_info"),
+                        )
+                    
+                    # Simple Mode Components - visible only in Simple mode
+                    with gr.Group(visible=True) as simple_mode_group:
+                        with gr.Row(equal_height=True):
+                            simple_query_input = gr.Textbox(
+                                label=t("generation.simple_query_label"),
+                                placeholder=t("generation.simple_query_placeholder"),
+                                lines=2,
+                                info=t("generation.simple_query_info"),
+                                scale=12,
+                            )
+
+                            with gr.Column(scale=1, min_width=100):
+                                random_desc_btn = gr.Button(
+                                    "🎲",
+                                    variant="secondary",
+                                    size="sm",
+                                    scale=2
+                                )
+                        
+                        with gr.Row(equal_height=True):
+                            with gr.Column(scale=1, variant="compact"):
+                                simple_instrumental_checkbox = gr.Checkbox(
+                                    label=t("generation.instrumental_label"),
+                                    value=False,
+                                )
+                            with gr.Column(scale=18):
+                                create_sample_btn = gr.Button(
+                                    t("generation.create_sample_btn"),
+                                    variant="primary",
+                                    size="lg",
+                                )
+                            with gr.Column(scale=1, variant="compact"):
+                                simple_vocal_language = gr.Dropdown(
+                                    choices=VALID_LANGUAGES,
+                                    value="unknown",
+                                    allow_custom_value=True,
+                                    label=t("generation.simple_vocal_language_label"),
+                                    interactive=True,
+                                )
+                    
+                    # State to track if sample has been created in Simple mode
+                    simple_sample_created = gr.State(value=False)
                 
-                # Music Caption
-                with gr.Accordion(t("generation.caption_title"), open=True):
+                # Music Caption - wrapped in accordion that can be collapsed in Simple mode
+                with gr.Accordion(t("generation.caption_title"), open=False) as caption_accordion:
                     with gr.Row(equal_height=True):
                         captions = gr.Textbox(
                             label=t("generation.caption_label"),
@@ -262,14 +317,14 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                             scale=9,
                         )
                         sample_btn = gr.Button(
-                            t("generation.sample_btn"),
+                            "🎲",
                             variant="secondary",
                             size="sm",
                             scale=1,
                         )
                 
-                # Lyrics
-                with gr.Accordion(t("generation.lyrics_title"), open=True):
+                # Lyrics - wrapped in accordion that can be collapsed in Simple mode
+                with gr.Accordion(t("generation.lyrics_title"), open=False) as lyrics_accordion:
                     lyrics = gr.Textbox(
                         label=t("generation.lyrics_label"),
                         placeholder=t("generation.lyrics_placeholder"),
@@ -283,7 +338,7 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                     )
                 
                 # Optional Parameters
-                with gr.Accordion(t("generation.optional_params"), open=True):
+                with gr.Accordion(t("generation.optional_params"), open=False) as optional_params_accordion:
                     with gr.Row():
                         vocal_language = gr.Dropdown(
                             choices=VALID_LANGUAGES,
@@ -587,6 +642,19 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
         "repainting_start": repainting_start,
         "repainting_end": repainting_end,
         "audio_cover_strength": audio_cover_strength,
+        # Simple/Custom Mode Components
+        "generation_mode": generation_mode,
+        "simple_mode_group": simple_mode_group,
+        "simple_query_input": simple_query_input,
+        "random_desc_btn": random_desc_btn,
+        "simple_instrumental_checkbox": simple_instrumental_checkbox,
+        "simple_vocal_language": simple_vocal_language,
+        "create_sample_btn": create_sample_btn,
+        "simple_sample_created": simple_sample_created,
+        "caption_accordion": caption_accordion,
+        "lyrics_accordion": lyrics_accordion,
+        "optional_params_accordion": optional_params_accordion,
+        # Existing components
         "captions": captions,
         "sample_btn": sample_btn,
         "load_file": load_file,

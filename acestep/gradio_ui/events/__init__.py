@@ -121,11 +121,11 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         )
     
     # ========== Sample/Transcribe Handlers ==========
+    # Load random example from ./examples/text2music directory
     generation_section["sample_btn"].click(
-        fn=lambda task, debug: gen_h.sample_example_smart(llm_handler, task, debug) + (True,),
+        fn=lambda task: gen_h.load_random_example(task) + (True,),
         inputs=[
             generation_section["task_type"],
-            generation_section["constrained_decoding_debug"]
         ],
         outputs=[
             generation_section["captions"],
@@ -188,6 +188,73 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         fn=gen_h.handle_instrumental_checkbox,
         inputs=[generation_section["instrumental_checkbox"], generation_section["lyrics"]],
         outputs=[generation_section["lyrics"]]
+    )
+    
+    # ========== Simple/Custom Mode Toggle ==========
+    generation_section["generation_mode"].change(
+        fn=gen_h.handle_generation_mode_change,
+        inputs=[generation_section["generation_mode"]],
+        outputs=[
+            generation_section["simple_mode_group"],
+            generation_section["caption_accordion"],
+            generation_section["lyrics_accordion"],
+            generation_section["generate_btn"],
+            generation_section["simple_sample_created"],
+            generation_section["optional_params_accordion"],
+        ]
+    )
+    
+    # ========== Simple Mode Instrumental Checkbox ==========
+    # When instrumental is checked, disable vocal language and set to ["unknown"]
+    generation_section["simple_instrumental_checkbox"].change(
+        fn=gen_h.handle_simple_instrumental_change,
+        inputs=[generation_section["simple_instrumental_checkbox"]],
+        outputs=[generation_section["simple_vocal_language"]]
+    )
+    
+    # ========== Random Description Button ==========
+    generation_section["random_desc_btn"].click(
+        fn=gen_h.load_random_simple_description,
+        inputs=[],
+        outputs=[
+            generation_section["simple_query_input"],
+            generation_section["simple_instrumental_checkbox"],
+            generation_section["simple_vocal_language"],
+        ]
+    )
+    
+    # ========== Create Sample Button (Simple Mode) ==========
+    # Note: cfg_scale and negative_prompt are not supported in create_sample mode
+    generation_section["create_sample_btn"].click(
+        fn=lambda query, instrumental, vocal_lang, temp, top_k, top_p, debug: gen_h.handle_create_sample(
+            llm_handler, query, instrumental, vocal_lang, temp, top_k, top_p, debug
+        ),
+        inputs=[
+            generation_section["simple_query_input"],
+            generation_section["simple_instrumental_checkbox"],
+            generation_section["simple_vocal_language"],
+            generation_section["lm_temperature"],
+            generation_section["lm_top_k"],
+            generation_section["lm_top_p"],
+            generation_section["constrained_decoding_debug"],
+        ],
+        outputs=[
+            generation_section["captions"],
+            generation_section["lyrics"],
+            generation_section["bpm"],
+            generation_section["audio_duration"],
+            generation_section["key_scale"],
+            generation_section["vocal_language"],
+            generation_section["time_signature"],
+            generation_section["instrumental_checkbox"],
+            generation_section["caption_accordion"],
+            generation_section["lyrics_accordion"],
+            generation_section["generate_btn"],
+            generation_section["simple_sample_created"],
+            generation_section["think_checkbox"],
+            results_section["is_format_caption_state"],
+            results_section["status_output"],
+        ]
     )
     
     # ========== Load/Save Metadata ==========

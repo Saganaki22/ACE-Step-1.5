@@ -19,7 +19,7 @@ from transformers.generation.logits_process import (
     RepetitionPenaltyLogitsProcessor,
 )
 from acestep.constrained_logits_processor import MetadataConstrainedLogitsProcessor
-from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION
+from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION, DEFAULT_LM_INSPIRED_INSTRUCTION
 
 
 class LLMHandler:
@@ -308,7 +308,7 @@ class LLMHandler:
             if not os.path.exists(full_lm_model_path):
                 return f"❌ 5Hz LM model not found at {full_lm_model_path}", False
             
-            logger.info("loading 5Hz LM tokenizer...")
+            logger.info("loading 5Hz LM tokenizer... it may take 80~90s")
             start_time = time.time()
             # TODO: load tokenizer too slow, not found solution yet
             llm_tokenizer = AutoTokenizer.from_pretrained(full_lm_model_path, use_fast=True)
@@ -1432,6 +1432,185 @@ class LLMHandler:
         after_think = re.sub(r'<\|im_end\|>\s*$', '', after_think)
         
         return after_think.strip()
+    
+    def build_formatted_prompt_for_inspiration(
+        self,
+        query: str,
+        instrumental: bool = False,
+        is_negative_prompt: bool = False,
+        negative_prompt: str = "NO USER INPUT"
+    ) -> str:
+        """
+        Build the chat-formatted prompt for inspiration/simple mode.
+        
+        This generates a complete sample (caption, lyrics, metadata) from a user's
+        natural language music description query.
+        
+        Args:
+            query: User's natural language music description
+            instrumental: Whether to generate instrumental music (no vocals)
+            is_negative_prompt: If True, builds unconditional prompt for CFG
+            negative_prompt: Negative prompt for CFG (used when is_negative_prompt=True)
+            
+        Returns:
+            Formatted prompt string
+            
+        Example:
+            query = "a soft Bengali love song for a quiet evening"
+            prompt = handler.build_formatted_prompt_for_inspiration(query, instrumental=False)
+        """
+        if self.llm_tokenizer is None:
+            raise ValueError("LLM tokenizer is not initialized. Call initialize() first.")
+        
+        # Build user content with query and instrumental flag
+        instrumental_str = "true" if instrumental else "false"
+        
+        if is_negative_prompt:
+            # For CFG unconditional prompt
+            user_content = negative_prompt if negative_prompt and negative_prompt.strip() else ""
+        else:
+            # Normal prompt: query + instrumental flag
+            user_content = f"{query}\n\ninstrumental: {instrumental_str}"
+        
+        return self.llm_tokenizer.apply_chat_template(
+            [
+                {
+                    "role": "system",
+                    "content": f"# Instruction\n{DEFAULT_LM_INSPIRED_INSTRUCTION}\n\n"
+                },
+                {
+                    "role": "user",
+                    "content": user_content
+                },
+            ],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    
+    def create_sample_from_query(
+        self,
+        query: str,
+        instrumental: bool = False,
+        vocal_language: Optional[List[str]] = None,
+        temperature: float = 0.85,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        repetition_penalty: float = 1.0,
+        use_constrained_decoding: bool = True,
+        constrained_decoding_debug: bool = False,
+    ) -> Tuple[Dict[str, Any], str]:
+        """
+        Create a complete music sample from a user's natural language query.
+        
+        This is the "Simple Mode" / "Inspiration Mode" feature that generates:
+        - Metadata (bpm, caption, duration, keyscale, language, timesignature)
+        - Lyrics (unless instrumental=True)
+        
+        Args:
+            query: User's natural language music description
+            instrumental: Whether to generate instrumental music (no vocals)
+            vocal_language: List of allowed vocal languages for constrained decoding (e.g., ["en", "zh"]).
+                           If provided and not ["unknown"], the first language will be used.
+            temperature: Sampling temperature for generation (0.0-2.0)
+            top_k: Top-K sampling (None = disabled)
+            top_p: Top-P (nucleus) sampling (None = disabled)
+            repetition_penalty: Repetition penalty (1.0 = no penalty)
+            use_constrained_decoding: Whether to use FSM-based constrained decoding
+            constrained_decoding_debug: Whether to enable debug logging
+            
+        Returns:
+            Tuple of (metadata_dict, status_message)
+            metadata_dict contains:
+                - bpm: int or str
+                - caption: str
+                - duration: int or str
+                - keyscale: str
+                - language: str
+                - timesignature: str
+                - lyrics: str (extracted from output after </think>)
+                - instrumental: bool (echoed back)
+        
+        Example:
+            query = "a soft Bengali love song for a quiet evening"
+            metadata, status = handler.create_sample_from_query(query, instrumental=False, vocal_language=["bn"])
+            print(metadata['caption'])  # "A gentle romantic acoustic pop ballad..."
+            print(metadata['lyrics'])   # "[Intro: ...]\\n..."
+        """
+        if not getattr(self, "llm_initialized", False):
+            return {}, "❌ 5Hz LM not initialized. Please initialize it first."
+        
+        if not query or not query.strip():
+            return {}, "❌ No query provided. Please enter a music description."
+        
+        logger.info(f"Creating sample from query: {query[:100]}... (instrumental={instrumental}, vocal_language={vocal_language})")
+        
+        # Build formatted prompt for inspiration
+        formatted_prompt = self.build_formatted_prompt_for_inspiration(
+            query=query,
+            instrumental=instrumental,
+        )
+        logger.debug(f"Formatted prompt for inspiration: {formatted_prompt}")
+        
+        # Build user_metadata if vocal_language is specified and is not "unknown"
+        user_metadata = None
+        skip_language = False
+        if vocal_language and len(vocal_language) > 0:
+            # Filter out "unknown" from the list
+            valid_languages = [lang for lang in vocal_language if lang and lang.lower() != "unknown"]
+            if valid_languages:
+                # Use the first valid language for constrained decoding
+                user_metadata = {"language": valid_languages[0]}
+                skip_language = True  # Skip language generation since we're injecting it
+                logger.info(f"Using user-specified language: {valid_languages[0]}")
+        
+        # Generate using constrained decoding (inspiration phase)
+        # Similar to understand mode - generate metadata first (CoT), then lyrics
+        # Note: cfg_scale and negative_prompt are not used in create_sample mode
+        output_text, status = self.generate_from_formatted_prompt(
+            formatted_prompt=formatted_prompt,
+            cfg={
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p,
+                "repetition_penalty": repetition_penalty,
+                "target_duration": None,  # No duration constraint
+                "user_metadata": user_metadata,  # Inject language if specified
+                "skip_caption": False,  # Generate caption
+                "skip_language": skip_language,  # Skip if we're injecting language
+                "skip_genres": False,  # Generate genres
+                "generation_phase": "understand",  # Use understand phase for metadata + free-form lyrics
+                "caption": "",
+                "lyrics": "",
+            },
+            use_constrained_decoding=use_constrained_decoding,
+            constrained_decoding_debug=constrained_decoding_debug,
+            stop_at_reasoning=False,  # Continue after </think> to generate lyrics
+        )
+        
+        if not output_text:
+            return {}, status
+        
+        # Parse metadata and extract lyrics
+        metadata, _ = self.parse_lm_output(output_text)
+        
+        # Extract lyrics section (everything after </think>)
+        lyrics = self._extract_lyrics_from_output(output_text)
+        if lyrics:
+            metadata['lyrics'] = lyrics
+        elif instrumental:
+            # For instrumental, set empty lyrics or placeholder
+            metadata['lyrics'] = "[Instrumental]"
+        
+        # Echo back the instrumental flag
+        metadata['instrumental'] = instrumental
+        
+        logger.info(f"Sample created successfully. Generated {len(metadata)} fields")
+        if constrained_decoding_debug:
+            logger.debug(f"Generated metadata: {list(metadata.keys())}")
+            logger.debug(f"Output text preview: {output_text[:300]}...")
+        
+        status_msg = f"✅ Sample created successfully\nGenerated fields: {', '.join(metadata.keys())}"
+        return metadata, status_msg
     
     def generate_from_formatted_prompt(
         self,
