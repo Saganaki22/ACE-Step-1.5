@@ -16,6 +16,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import functools
+import json
 import os
 import sys
 import time
@@ -32,8 +34,8 @@ from dotenv import load_dotenv
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_project_root, ".env"))
 
-from fastapi import FastAPI, HTTPException, Depends, Header
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from acestep.handler import AceStepHandler
@@ -42,6 +44,7 @@ from acestep.inference import (
     GenerationParams,
     GenerationConfig,
     generate_music,
+    format_sample,
 )
 
 # =============================================================================
@@ -101,6 +104,7 @@ class ChatCompletionRequest(BaseModel):
     model: str = MODEL_ID
     messages: List[ChatMessage] = Field(default_factory=list)
     modalities: List[str] = Field(default=["audio"])
+    stream: bool = False  # Enable streaming response
     temperature: float = 0.85
     top_p: float = 0.9
     max_tokens: Optional[int] = None
@@ -110,6 +114,12 @@ class ChatCompletionRequest(BaseModel):
     bpm: Optional[int] = None
     vocal_language: str = "en"
     instrumental: bool = False
+    # LM / CoT control parameters
+    thinking: bool = False
+    use_cot_metas: bool = True
+    use_cot_caption: bool = True
+    use_cot_language: bool = True
+    use_format: bool = True
 
 
 class AudioUrlContent(BaseModel):
@@ -148,6 +158,30 @@ class ChatCompletionResponse(BaseModel):
     model: str = MODEL_ID
     choices: List[Choice] = Field(default_factory=list)
     usage: Usage = Field(default_factory=Usage)
+
+
+# Streaming response models
+class DeltaContent(BaseModel):
+    """Delta content for streaming responses."""
+    role: Optional[str] = None
+    content: Optional[str] = None
+    audio: Optional[List[AudioOutputItem]] = None
+
+
+class StreamChoice(BaseModel):
+    """Single choice in streaming response."""
+    index: int = 0
+    delta: DeltaContent = Field(default_factory=DeltaContent)
+    finish_reason: Optional[str] = None
+
+
+class ChatCompletionChunk(BaseModel):
+    """Streaming chunk response."""
+    id: str = ""
+    object: str = "chat.completion.chunk"
+    created: int = 0
+    model: str = MODEL_ID
+    choices: List[StreamChoice] = Field(default_factory=list)
 
 
 class ModelInfo(BaseModel):
@@ -356,6 +390,39 @@ def _format_lm_content(result: Dict[str, Any]) -> str:
         return "Music generated successfully."
 
 
+def _make_stream_chunk(
+    completion_id: str,
+    created: int,
+    model_id: str,
+    content: Optional[str] = None,
+    role: Optional[str] = None,
+    audio: Optional[List[AudioOutputItem]] = None,
+    finish_reason: Optional[str] = None,
+) -> str:
+    """Build SSE chunk JSON string."""
+    delta = DeltaContent()
+    if role:
+        delta.role = role
+    if content is not None:
+        delta.content = content
+    if audio is not None:
+        delta.audio = audio
+
+    chunk = ChatCompletionChunk(
+        id=completion_id,
+        created=created,
+        model=model_id,
+        choices=[
+            StreamChoice(
+                index=0,
+                delta=delta,
+                finish_reason=finish_reason,
+            )
+        ],
+    )
+    return f"data: {chunk.model_dump_json()}\n\n"
+
+
 # =============================================================================
 # Application Factory
 # =============================================================================
@@ -491,17 +558,19 @@ def create_app() -> FastAPI:
             ]
         )
     
-    @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
+    @app.post("/v1/chat/completions")
     async def chat_completions(
         request: ChatCompletionRequest,
         _: None = Depends(verify_api_key),
-    ) -> ChatCompletionResponse:
+    ):
         """
         Generate music from text prompt (OpenAI Chat Completions format).
 
         Input processing:
         - With tags: use <prompt>...</prompt> and <lyrics>...</lyrics>
         - Without tags: heuristic detection (lyrics vs sample_query for LLM)
+
+        Supports streaming mode when request.stream=True.
         """
         # Check if model is initialized
         if not app.state._initialized:
@@ -514,19 +583,30 @@ def create_app() -> FastAPI:
         # Validate input
         if not prompt and not lyrics and not sample_query:
             raise HTTPException(status_code=400, detail="No input provided in messages")
-        
+
         # Determine if instrumental
         instrumental = request.instrumental or not lyrics
 
-        def _blocking_generate() -> Dict[str, Any]:
-            """Run music generation in thread pool."""
+        # Generate unique IDs
+        completion_id = f"chatcmpl-{os.urandom(8).hex()}"
+        created_timestamp = int(time.time())
+
+        def _run_lm_sample() -> Dict[str, Any]:
+            """Run LLM sample generation or format_sample (blocking)."""
             nonlocal prompt, lyrics, instrumental
 
-            h: AceStepHandler = app.state.handler
             llm = app.state.llm_handler if app.state._llm_initialized else None
+            lm_result = {
+                "prompt": prompt,
+                "lyrics": lyrics,
+                "instrumental": instrumental,
+                "lm_used": False,
+                "metadata": {},
+                "format_has_duration": False,
+            }
 
-            # Handle sample_query mode - use LLM to generate prompt and lyrics
             if sample_query and llm:
+                # Sample mode: LLM generates prompt and lyrics from query
                 try:
                     sample_result, status_msg = llm.create_sample_from_query(
                         query=sample_query,
@@ -536,15 +616,87 @@ def create_app() -> FastAPI:
                         top_p=request.top_p,
                     )
                     if sample_result:
-                        prompt = sample_result.get("caption", "") or prompt
-                        lyrics = sample_result.get("lyrics", "") or lyrics
-                        instrumental = sample_result.get("instrumental", instrumental)
+                        lm_result["prompt"] = sample_result.get("caption", "") or prompt
+                        lm_result["lyrics"] = sample_result.get("lyrics", "") or lyrics
+                        lm_result["instrumental"] = sample_result.get("instrumental", instrumental)
+                        lm_result["lm_used"] = True
+                        lm_result["format_has_duration"] = bool(sample_result.get("duration"))
+                        lm_result["metadata"] = {
+                            "caption": lm_result["prompt"],
+                            "bpm": sample_result.get("bpm"),
+                            "duration": sample_result.get("duration"),
+                            "keyscale": sample_result.get("keyscale"),
+                            "timesignature": sample_result.get("timesignature"),
+                            "language": sample_result.get("language") or request.vocal_language,
+                        }
                         print(f"[OpenRouter API] Sample mode: {status_msg}")
                 except Exception as e:
                     print(f"[OpenRouter API] Warning: create_sample_from_query failed: {e}")
-                    # Fall back to using sample_query as prompt
                     if not prompt:
-                        prompt = sample_query
+                        lm_result["prompt"] = sample_query
+
+            elif (prompt or lyrics) and llm and request.use_format:
+                # Format mode: use format_sample to enhance caption and lyrics
+                try:
+                    user_metadata = {}
+                    if request.bpm is not None:
+                        user_metadata["bpm"] = request.bpm
+                    if request.duration:
+                        user_metadata["duration"] = float(request.duration)
+                    if request.vocal_language and request.vocal_language != "unknown":
+                        user_metadata["language"] = request.vocal_language
+
+                    format_result = format_sample(
+                        llm_handler=llm,
+                        caption=prompt,
+                        lyrics=lyrics,
+                        user_metadata=user_metadata if user_metadata else None,
+                        temperature=request.temperature,
+                        top_p=request.top_p,
+                        use_constrained_decoding=True,
+                    )
+
+                    if format_result.success:
+                        lm_result["prompt"] = format_result.caption or prompt
+                        lm_result["lyrics"] = format_result.lyrics or lyrics
+                        lm_result["lm_used"] = True
+                        lm_result["format_has_duration"] = bool(format_result.duration)
+                        lm_result["metadata"] = {
+                            "caption": lm_result["prompt"],
+                            "bpm": format_result.bpm or request.bpm,
+                            "duration": format_result.duration or request.duration,
+                            "keyscale": format_result.keyscale or None,
+                            "timesignature": format_result.timesignature or None,
+                            "language": format_result.language or request.vocal_language,
+                        }
+                        print(f"[OpenRouter API] Format mode: {format_result.status_message}")
+                    else:
+                        print(f"[OpenRouter API] Warning: format_sample failed: {format_result.error}")
+                except Exception as e:
+                    print(f"[OpenRouter API] Warning: format_sample error: {e}")
+
+            return lm_result
+
+        def _run_audio_generation(lm_result: Dict[str, Any]) -> Dict[str, Any]:
+            """Run audio generation (blocking)."""
+            h: AceStepHandler = app.state.handler
+            llm = app.state.llm_handler if app.state._llm_initialized else None
+
+            gen_prompt = lm_result["prompt"]
+            gen_lyrics = lm_result["lyrics"]
+            gen_instrumental = lm_result["instrumental"]
+
+            # Use metadata from LM/format if available, fallback to request params
+            lm_meta = lm_result.get("metadata", {})
+            gen_bpm = lm_meta.get("bpm") or request.bpm
+            gen_duration = lm_meta.get("duration") or (request.duration if request.duration else -1.0)
+            gen_keyscale = lm_meta.get("keyscale") or ""
+            gen_timesignature = lm_meta.get("timesignature") or ""
+            gen_language = lm_meta.get("language") or request.vocal_language
+
+            # If sample/format already generated duration, skip Phase 1 CoT metas
+            is_sample_mode = bool(sample_query and lm_result.get("lm_used"))
+            format_has_duration = lm_result.get("format_has_duration", False)
 
             # Default timesteps for turbo model (8 steps)
             default_timesteps = [0.97, 0.76, 0.615, 0.5, 0.395, 0.28, 0.18, 0.085, 0.0]
@@ -552,28 +704,31 @@ def create_app() -> FastAPI:
             # Build generation parameters
             params = GenerationParams(
                 task_type="text2music",
-                caption=prompt,
-                lyrics=lyrics,
-                instrumental=instrumental,
-                vocal_language=request.vocal_language,
-                bpm=request.bpm,
-                duration=request.duration if request.duration else -1.0,
+                caption=gen_prompt,
+                lyrics=gen_lyrics,
+                instrumental=gen_instrumental,
+                vocal_language=gen_language,
+                bpm=gen_bpm,
+                keyscale=gen_keyscale,
+                timesignature=gen_timesignature,
+                duration=gen_duration if gen_duration else -1.0,
                 inference_steps=8,
                 guidance_scale=7.0,
                 lm_temperature=request.temperature,
                 lm_top_p=request.top_p,
-                thinking=False,
-                use_cot_caption=False,
-                use_cot_language=False,
+                thinking=request.thinking,
+                use_cot_metas=request.use_cot_metas and not is_sample_mode and not format_has_duration,
+                use_cot_caption=request.use_cot_caption,
+                use_cot_language=request.use_cot_language,
                 timesteps=default_timesteps,
             )
-            
+
             config = GenerationConfig(
-                batch_size=1,  # Single audio output
+                batch_size=1,
                 use_random_seed=True,
                 audio_format="mp3",
             )
-            
+
             result = generate_music(
                 dit_handler=h,
                 llm_handler=llm,
@@ -581,7 +736,7 @@ def create_app() -> FastAPI:
                 config=config,
                 save_dir=app.state.temp_audio_dir,
             )
-            
+
             if not result.success:
                 raise RuntimeError(result.error or "Music generation failed")
 
@@ -593,40 +748,163 @@ def create_app() -> FastAPI:
             if not audio_path or not os.path.exists(audio_path):
                 raise RuntimeError("No audio file generated")
 
-            # Build metadata dict for response
-            metadata = {
-                "caption": prompt,
-                "bpm": request.bpm,
-                "duration": request.duration,
-                "keyscale": None,
-                "timesignature": None,
-                "language": request.vocal_language,
-                "instrumental": instrumental,
-            }
+            # Build metadata
+            metadata = lm_result.get("metadata", {})
+            if not metadata:
+                metadata = {
+                    "caption": gen_prompt,
+                    "bpm": request.bpm,
+                    "duration": request.duration,
+                    "keyscale": None,
+                    "timesignature": None,
+                    "language": request.vocal_language,
+                    "instrumental": gen_instrumental,
+                }
 
             # Extract LM metadata from result if available
             lm_metadata = result.extra_outputs.get("lm_metadata", {}) if hasattr(result, 'extra_outputs') else {}
             if lm_metadata:
-                if lm_metadata.get("caption"):
-                    metadata["caption"] = lm_metadata.get("caption")
-                if lm_metadata.get("bpm"):
-                    metadata["bpm"] = lm_metadata.get("bpm")
-                if lm_metadata.get("duration"):
-                    metadata["duration"] = lm_metadata.get("duration")
-                if lm_metadata.get("keyscale"):
-                    metadata["keyscale"] = lm_metadata.get("keyscale")
-                if lm_metadata.get("timesignature"):
-                    metadata["timesignature"] = lm_metadata.get("timesignature")
-                if lm_metadata.get("language"):
-                    metadata["language"] = lm_metadata.get("language")
+                for key in ["caption", "bpm", "duration", "keyscale", "timesignature", "language"]:
+                    if lm_metadata.get(key):
+                        metadata[key] = lm_metadata.get(key)
 
             return {
                 "audio_path": audio_path,
-                "lyrics": lyrics,
+                "lyrics": gen_lyrics,
                 "metadata": metadata,
-                "lm_used": llm is not None,
+                "lm_used": lm_result.get("lm_used", False),
             }
-        
+
+        # Handle streaming mode
+        if request.stream:
+            async def stream_generator():
+                """Generate SSE stream."""
+                loop = asyncio.get_running_loop()
+                executor = app.state.executor
+
+                # Send initial role chunk
+                yield _make_stream_chunk(
+                    completion_id, created_timestamp, request.model,
+                    role="assistant", content=""
+                )
+                await asyncio.sleep(0)
+
+                # Step 1: Run LM sample generation
+                print("[OpenRouter API] Stream: Running LM sample...")
+                try:
+                    lm_result = await loop.run_in_executor(executor, _run_lm_sample)
+                except Exception as e:
+                    print(f"[OpenRouter API] Stream: LM error: {e}")
+                    lm_result = {
+                        "prompt": prompt or sample_query,
+                        "lyrics": lyrics,
+                        "instrumental": instrumental,
+                        "lm_used": False,
+                        "metadata": {},
+                    }
+
+                # If LM was used, stream the content
+                if lm_result.get("lm_used"):
+                    lm_content = _format_lm_content({
+                        "lm_used": True,
+                        "lyrics": lm_result.get("lyrics", ""),
+                        "metadata": lm_result.get("metadata", {}),
+                    })
+                    # Stream LM content in chunks
+                    yield _make_stream_chunk(
+                        completion_id, created_timestamp, request.model,
+                        content=f"\n\n{lm_content}"
+                    )
+                    await asyncio.sleep(0)
+                    print("[OpenRouter API] Stream: LM content sent")
+
+                # Step 2: Run audio generation with heartbeats
+                print("[OpenRouter API] Stream: Starting audio generation...")
+                audio_future = loop.run_in_executor(
+                    executor,
+                    functools.partial(_run_audio_generation, lm_result)
+                )
+
+                # Send heartbeat while waiting
+                heartbeat_interval = 2.0
+                dot_count = 0
+                while not audio_future.done():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(audio_future), timeout=heartbeat_interval)
+                        break
+                    except asyncio.TimeoutError:
+                        dot_count += 1
+                        yield _make_stream_chunk(
+                            completion_id, created_timestamp, request.model,
+                            content="."
+                        )
+                        await asyncio.sleep(0)
+                        print(f"[OpenRouter API] Stream: Heartbeat {dot_count}")
+
+                # Get audio result
+                try:
+                    audio_result = await audio_future
+                    print(f"[OpenRouter API] Stream: Audio generation completed")
+                except Exception as e:
+                    print(f"[OpenRouter API] Stream: Audio generation error: {e}")
+                    yield _make_stream_chunk(
+                        completion_id, created_timestamp, request.model,
+                        content=f"\n\nError: {str(e)}"
+                    )
+                    yield _make_stream_chunk(
+                        completion_id, created_timestamp, request.model,
+                        finish_reason="error"
+                    )
+                    yield "data: [DONE]\n\n"
+                    return
+
+                # Send audio data
+                audio_path = audio_result.get("audio_path")
+                if audio_path and os.path.exists(audio_path):
+                    b64_url = _audio_to_base64_url(audio_path, "mp3")
+                    if b64_url:
+                        audio_list = [
+                            AudioOutputItem(
+                                type="audio_url",
+                                audio_url=AudioUrlContent(url=b64_url)
+                            )
+                        ]
+                        yield _make_stream_chunk(
+                            completion_id, created_timestamp, request.model,
+                            audio=audio_list
+                        )
+                        await asyncio.sleep(0)
+                        print("[OpenRouter API] Stream: Audio data sent")
+                    else:
+                        yield _make_stream_chunk(
+                            completion_id, created_timestamp, request.model,
+                            content="\n\nError: Failed to encode audio"
+                        )
+                else:
+                    yield _make_stream_chunk(
+                        completion_id, created_timestamp, request.model,
+                        content="\n\nError: Audio file not found"
+                    )
+
+                # Send finish
+                yield _make_stream_chunk(
+                    completion_id, created_timestamp, request.model,
+                    finish_reason="stop"
+                )
+                yield "data: [DONE]\n\n"
+                print("[OpenRouter API] Stream: Complete")
+
+            return StreamingResponse(
+                stream_generator(),
+                media_type="text/event-stream",
+            )
+
+        # Non-streaming mode
+        def _blocking_generate() -> Dict[str, Any]:
+            """Run full generation in thread pool."""
+            lm_result = _run_lm_sample()
+            return _run_audio_generation(lm_result)
+
         try:
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(app.state.executor, _blocking_generate)
@@ -636,7 +914,7 @@ def create_app() -> FastAPI:
         # Format content with LM results
         text_content = _format_lm_content(result)
 
-        # Build audio in OpenRouter format: [{"type": "audio_url", "audio_url": {"url": "data:..."}}]
+        # Build audio in OpenRouter format
         audio_list = None
         audio_path = result.get("audio_path")
         if audio_path and os.path.exists(audio_path):
@@ -650,8 +928,8 @@ def create_app() -> FastAPI:
                 ]
 
         response = ChatCompletionResponse(
-            id=f"chatcmpl-{os.urandom(8).hex()}",
-            created=int(time.time()),
+            id=completion_id,
+            created=created_timestamp,
             model=request.model,
             choices=[
                 Choice(
@@ -665,9 +943,9 @@ def create_app() -> FastAPI:
                 )
             ],
             usage=Usage(
-                prompt_tokens=len(prompt.split()),
-                completion_tokens=100,  # Placeholder
-                total_tokens=len(prompt.split()) + 100,
+                prompt_tokens=len(prompt.split()) if prompt else 0,
+                completion_tokens=100,
+                total_tokens=(len(prompt.split()) if prompt else 0) + 100,
             ),
         )
 
