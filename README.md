@@ -159,7 +159,7 @@ uv sync --upgrade
 
 ## 📥 Model Download
 
-Models are automatically downloaded from [HuggingFace](https://huggingface.co/collections/ACE-Step/ace-step-15) or [ModelScope](https://modelscope.cn/organization/ACE-Step) on first run. You can also manually download models using the CLI or `huggingface-cli`.
+Models are automatically downloaded from [HuggingFace]https://huggingface.co/ACE-Step/Ace-Step1.5) or [ModelScope](https://modelscope.cn/organization/ACE-Step) on first run. You can also manually download models using the CLI or `huggingface-cli`.
 
 ### Automatic Download
 
