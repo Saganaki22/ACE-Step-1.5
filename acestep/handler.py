@@ -2344,7 +2344,11 @@ class AceStepHandler:
         
         # If short enough, decode directly
         if T <= chunk_size:
-            return self.vae.decode(latents).sample
+            # Decode and immediately extract .sample to avoid keeping DecoderOutput object
+            decoder_output = self.vae.decode(latents)
+            result = decoder_output.sample
+            del decoder_output
+            return result
 
         # Calculate stride (core size)
         stride = chunk_size - 2 * overlap
@@ -2379,7 +2383,9 @@ class AceStepHandler:
             
             # Decode
             # [Batch, Channels, AudioSamples]
-            audio_chunk = self.vae.decode(latent_chunk).sample
+            decoder_output = self.vae.decode(latent_chunk)
+            audio_chunk = decoder_output.sample
+            del decoder_output
             
             # Determine upsample factor from the first chunk
             if upsample_factor is None:
@@ -2414,7 +2420,9 @@ class AceStepHandler:
         first_win_end = min(T, first_core_end + overlap)
         
         first_latent_chunk = latents[:, :, first_win_start:first_win_end]
-        first_audio_chunk = self.vae.decode(first_latent_chunk).sample
+        first_decoder_output = self.vae.decode(first_latent_chunk)
+        first_audio_chunk = first_decoder_output.sample
+        del first_decoder_output
         
         upsample_factor = first_audio_chunk.shape[-1] / first_latent_chunk.shape[-1]
         audio_channels = first_audio_chunk.shape[1]
@@ -2452,7 +2460,9 @@ class AceStepHandler:
             
             # Decode on GPU
             # [Batch, Channels, AudioSamples]
-            audio_chunk = self.vae.decode(latent_chunk).sample
+            decoder_output = self.vae.decode(latent_chunk)
+            audio_chunk = decoder_output.sample
+            del decoder_output
             
             # Calculate trim amounts in audio samples
             added_start = core_start - win_start  # latent frames
@@ -2851,19 +2861,38 @@ class AceStepHandler:
             start_time = time.time()
             with torch.no_grad():
                 with self._load_model_context("vae"):
+                    # Move pred_latents to CPU early to save VRAM (will be used in extra_outputs later)
+                    pred_latents_cpu = pred_latents.detach().cpu()
+                    
                     # Transpose for VAE decode: [batch, latent_length, latent_dim] -> [batch, latent_dim, latent_length]
-                    pred_latents_for_decode = pred_latents.transpose(1, 2)
+                    pred_latents_for_decode = pred_latents.transpose(1, 2).contiguous()
                     # Ensure input is in VAE's dtype
                     pred_latents_for_decode = pred_latents_for_decode.to(self.vae.dtype)
+                    
+                    # Release original pred_latents to free VRAM before VAE decode
+                    del pred_latents
+                    torch.cuda.empty_cache()
+                    
+                    logger.debug(f"[generate_music] Before VAE decode: allocated={torch.cuda.memory_allocated()/1024**3:.2f}GB, max={torch.cuda.max_memory_allocated()/1024**3:.2f}GB")
                     
                     if use_tiled_decode:
                         logger.info("[generate_music] Using tiled VAE decode to reduce VRAM usage...")
                         pred_wavs = self.tiled_decode(pred_latents_for_decode)  # [batch, channels, samples]
                     else:
-                        pred_wavs = self.vae.decode(pred_latents_for_decode).sample
+                        decoder_output = self.vae.decode(pred_latents_for_decode)
+                        pred_wavs = decoder_output.sample
+                        del decoder_output
                     
-                    # Cast output to float32 for audio processing/saving
-                    pred_wavs = pred_wavs.to(torch.float32)
+                    logger.debug(f"[generate_music] After VAE decode: allocated={torch.cuda.memory_allocated()/1024**3:.2f}GB, max={torch.cuda.max_memory_allocated()/1024**3:.2f}GB")
+                    
+                    # Release pred_latents_for_decode after decode
+                    del pred_latents_for_decode
+                    
+                    # Cast output to float32 for audio processing/saving (in-place if possible)
+                    if pred_wavs.dtype != torch.float32:
+                        pred_wavs = pred_wavs.float()
+                    
+                    torch.cuda.empty_cache()
             end_time = time.time()
             time_costs["vae_decode_time_cost"] = end_time - start_time
             time_costs["total_time_cost"] = time_costs["total_time_cost"] + time_costs["vae_decode_time_cost"]
@@ -2903,7 +2932,7 @@ class AceStepHandler:
             
             # Move all tensors to CPU to save VRAM (detach to release computation graph)
             extra_outputs = {
-                "pred_latents": pred_latents.detach().cpu() if pred_latents is not None else None,
+                "pred_latents": pred_latents_cpu,  # Already moved to CPU earlier to save VRAM during VAE decode
                 "target_latents": target_latents_input.detach().cpu() if target_latents_input is not None else None,
                 "src_latents": src_latents.detach().cpu() if src_latents is not None else None,
                 "chunk_masks": chunk_masks.detach().cpu() if chunk_masks is not None else None,

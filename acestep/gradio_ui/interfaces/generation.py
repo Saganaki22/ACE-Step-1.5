@@ -128,19 +128,33 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                     interactive=flash_attn_available,
                     info=t("service.flash_attention_info_enabled") if flash_attn_available else t("service.flash_attention_info_disabled")
                 )
-                # Set offload_to_cpu value from init_params if pre-initialized
-                offload_to_cpu_value = init_params.get('offload_to_cpu', False) if service_pre_initialized else False
+                # Set offload_to_cpu value from init_params if pre-initialized (default True)
+                offload_to_cpu_value = init_params.get('offload_to_cpu', True) if service_pre_initialized else True
                 offload_to_cpu_checkbox = gr.Checkbox(
                     label=t("service.offload_cpu_label"),
                     value=offload_to_cpu_value,
                     info=t("service.offload_cpu_info")
                 )
-                # Set offload_dit_to_cpu value from init_params if pre-initialized
-                offload_dit_to_cpu_value = init_params.get('offload_dit_to_cpu', False) if service_pre_initialized else False
+                # Set offload_dit_to_cpu value from init_params if pre-initialized (default True)
+                offload_dit_to_cpu_value = init_params.get('offload_dit_to_cpu', True) if service_pre_initialized else True
                 offload_dit_to_cpu_checkbox = gr.Checkbox(
                     label=t("service.offload_dit_cpu_label"),
                     value=offload_dit_to_cpu_value,
                     info=t("service.offload_dit_cpu_info")
+                )
+                # Set compile_model value from init_params if pre-initialized (default True)
+                compile_model_value = init_params.get('compile_model', True) if service_pre_initialized else True
+                compile_model_checkbox = gr.Checkbox(
+                    label=t("service.compile_model_label"),
+                    value=compile_model_value,
+                    info=t("service.compile_model_info")
+                )
+                # Set quantization value from init_params if pre-initialized (default True for int8_weight_only)
+                quantization_value = init_params.get('quantization', True) if service_pre_initialized else True
+                quantization_checkbox = gr.Checkbox(
+                    label=t("service.quantization_label"),
+                    value=quantization_value,
+                    info=t("service.quantization_info")
                 )
             
             init_btn = gr.Button(t("service.init_btn"), variant="primary", size="lg")
@@ -697,6 +711,8 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
         "use_flash_attention_checkbox": use_flash_attention_checkbox,
         "offload_to_cpu_checkbox": offload_to_cpu_checkbox,
         "offload_dit_to_cpu_checkbox": offload_dit_to_cpu_checkbox,
+        "compile_model_checkbox": compile_model_checkbox,
+        "quantization_checkbox": quantization_checkbox,
         # LoRA components
         "lora_path": lora_path,
         "load_lora_btn": load_lora_btn,

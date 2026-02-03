@@ -398,13 +398,17 @@ def update_model_type_settings(config_path):
     return get_model_type_ui_settings(is_turbo)
 
 
-def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, device, init_llm, lm_model_path, backend, use_flash_attention, offload_to_cpu, offload_dit_to_cpu):
+def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, device, init_llm, lm_model_path, backend, use_flash_attention, offload_to_cpu, offload_dit_to_cpu, compile_model, quantization):
     """Wrapper for service initialization, returns status, button state, accordion state, and model type settings"""
+    # Convert quantization checkbox to value (int8_weight_only if checked, None if not)
+    quant_value = "int8_weight_only" if quantization else None
+    
     # Initialize DiT handler
     status, enable = dit_handler.initialize_service(
         checkpoint, config_path, device,
-        use_flash_attention=use_flash_attention, compile_model=False, 
-        offload_to_cpu=offload_to_cpu, offload_dit_to_cpu=offload_dit_to_cpu
+        use_flash_attention=use_flash_attention, compile_model=compile_model, 
+        offload_to_cpu=offload_to_cpu, offload_dit_to_cpu=offload_dit_to_cpu,
+        quantization=quant_value
     )
     
     # Initialize LM handler if requested
