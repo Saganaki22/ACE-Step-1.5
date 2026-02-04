@@ -83,15 +83,128 @@ For Windows users, we provide a portable package with pre-installed dependencies
 2. The package includes `python_embeded` with all dependencies pre-installed
 3. **Requirements:** CUDA 12.8
 
-**Launch:**
+#### 🚀 Quick Start Scripts
+
+The portable package includes convenient batch scripts for easy operation:
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| **start_gradio_ui.bat** | Launch Gradio Web UI | Double-click or run from terminal |
+| **start_api_server.bat** | Launch REST API Server | Double-click or run from terminal |
+
+**Basic Usage:**
 
 ```bash
-# Gradio Web UI
-python_embeded\python acestep\acestep_v15_pipeline.py
+# Launch Gradio Web UI (Recommended)
+start_gradio_ui.bat
 
-# REST API Server
-python_embeded\python acestep\api_server.py
+# Launch REST API Server
+start_api_server.bat
 ```
+
+Both scripts support:
+- ✅ Auto environment detection (`python_embeded` or `uv`)
+- ✅ Auto install `uv` if needed (via winget or PowerShell)
+- ✅ Configurable download source (HuggingFace/ModelScope)
+- ✅ Optional Git update check before startup
+- ✅ Customizable language, models, and parameters
+
+#### 📝 Configuration
+
+Edit the scripts to customize settings:
+
+**start_gradio_ui.bat:**
+```batch
+REM UI language (en, zh, ja)
+set LANGUAGE=zh
+
+REM Download source (auto, huggingface, modelscope)
+set DOWNLOAD_SOURCE=--download-source modelscope
+
+REM Git update check (true/false) - requires PortableGit
+set CHECK_UPDATE=true
+
+REM Model configuration
+set CONFIG_PATH=--config_path acestep-v15-turbo
+set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-1.7B
+```
+
+#### 🔄 Update & Maintenance Tools
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| **check_update.bat** | Check and update from GitHub | When you want to update to the latest version |
+| **merge_config.bat** | Merge backed-up configurations | After updating when config conflicts occur |
+| **install_uv.bat** | Install uv package manager | If uv installation failed during startup |
+| **quick_test.bat** | Test environment setup | To verify your environment is working |
+| **test_git_update.bat** | Test Git update functionality | To verify PortableGit is working correctly |
+
+**Update Workflow:**
+
+```bash
+# 1. Check for updates (requires PortableGit/)
+check_update.bat
+
+# 2. If conflicts occur, your changes are backed up automatically
+# 3. After update, merge your settings back
+merge_config.bat
+
+# Options:
+# - Compare backup with current files (side-by-side in Notepad)
+# - Restore files from backup
+# - List all backed-up files
+# - Delete old backups
+```
+
+**Environment Testing:**
+
+```bash
+# Test your setup
+quick_test.bat
+
+# This checks:
+# - Python installation (python_embeded or system Python)
+# - uv installation and PATH
+# - GPU availability (CUDA/ROCm)
+# - Basic imports
+```
+
+#### 📦 Portable Git Support
+
+If you have `PortableGit/` folder in your package, you can:
+
+1. **Enable Auto-Updates:** Edit `start_gradio_ui.bat` or `start_api_server.bat`
+   ```batch
+   set CHECK_UPDATE=true
+   ```
+
+2. **Manual Update Check:**
+   ```bash
+   check_update.bat
+   ```
+
+3. **Conflict Handling:** When your modified files conflict with GitHub updates:
+   - Files are automatically backed up to `.update_backup_YYYYMMDD_HHMMSS/`
+   - Use `merge_config.bat` to compare and merge changes
+   - Supports all file types: `.bat`, `.py`, `.yaml`, `.json`, etc.
+
+**Update Features:**
+- ⏱️ 10-second timeout protection (won't block startup if GitHub is unreachable)
+- 💾 Smart conflict detection and backup
+- 🔄 Automatic rollback on failure
+- 📁 Preserves directory structure in backups
+
+#### 🛠️ Advanced Options
+
+**Environment Detection Priority:**
+1. `python_embeded\python.exe` (if exists)
+2. `uv run acestep` (if uv is installed)
+3. Auto-install uv via winget or PowerShell
+
+**Download Source:**
+- `auto`: Auto-detect best source (checks Google accessibility)
+- `huggingface`: Use HuggingFace Hub
+- `modelscope`: Use ModelScope (recommended for users in China)
 
 ---
 
