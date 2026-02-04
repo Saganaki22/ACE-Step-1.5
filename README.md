@@ -75,6 +75,28 @@ Star ACE-Step on GitHub and be instantly notified of new releases
 
 > **Requirements:** Python 3.11, CUDA GPU recommended (works on CPU/MPS but slower)
 
+### 🪟 Windows Portable Package (Recommended for Windows)
+
+For Windows users, we provide a portable package with pre-installed dependencies:
+
+1. Download and extract: [ACE-Step-1.5.7z](https://files.acemusic.ai/acemusic/win/ACE-Step-1.5.7z)
+2. The package includes `python_embeded` with all dependencies pre-installed
+3. **Requirements:** CUDA 12.8
+
+**Launch:**
+
+```bash
+# Gradio Web UI
+python_embeded\python -m acestep.entry.gradio_app
+
+# REST API Server
+python_embeded\python -m acestep.entry.api_server
+```
+
+---
+
+### Standard Installation (All Platforms)
+
 ### 1. Install uv (Package Manager)
 
 ```bash

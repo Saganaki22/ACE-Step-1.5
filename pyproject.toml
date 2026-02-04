@@ -11,9 +11,9 @@ dependencies = [
     "torchvision; sys_platform == 'win32'",
     "torchaudio==2.7.1; sys_platform == 'win32'",
     # PyTorch for Linux with CUDA 12.8
-    "torch==2.10.0; sys_platform == 'linux'",
+    "torch==2.7.1; sys_platform == 'linux'",
     "torchvision; sys_platform == 'linux'",
-    "torchaudio==2.10.0; sys_platform == 'linux'",
+    "torchaudio==2.7.1; sys_platform == 'linux'",
     # PyTorch for macOS (CPU / MPS)
     "torch>=2.9.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "torchvision; sys_platform == 'darwin' and platform_machine == 'arm64'",
@@ -34,6 +34,7 @@ dependencies = [
     "numba>=0.63.1",
     "vector-quantize-pytorch>=1.27.15",
     "torchcodec>=0.9.1; sys_platform != 'darwin'",
+    "torchao",
     # Local third-party packages
     "nano-vllm; sys_platform != 'darwin'",
     "modelscope"
