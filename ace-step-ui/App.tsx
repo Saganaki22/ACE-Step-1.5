@@ -967,6 +967,7 @@ export default function App() {
                 onGenerate={handleGenerate}
                 isGenerating={isGenerating}
                 initialData={reuseData}
+                onShowToast={showToast}
               />
             </div>
 

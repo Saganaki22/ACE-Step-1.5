@@ -1,30 +1,25 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/🎵-ACE--Step_UI-ff69b4?style=for-the-badge&labelColor=1a1a1a" alt="ACE-Step UI" height="60">
-</p>
-
-<h1 align="center">ACE-Step UI</h1>
+<h1 align="center">ACE-Step 1.5 + UI AIO</h1>
 
 <p align="center">
   <strong>The Ultimate Open Source Suno Alternative</strong><br>
   <em>Seamless integration with <a href="https://github.com/ace-step/ACE-Step-1.5">ACE-Step 1.5</a> - The Open Source AI Music Generation Model</em>
 </p>
 
+
 <p align="center">
-  <a href="https://www.youtube.com/@Ambsd-yy7os">
-    <img src="https://img.shields.io/badge/▶_Subscribe-YouTube-FF0000?style=for-the-badge&logo=youtube" alt="Subscribe on YouTube">
-  </a>
-  <a href="https://x.com/AmbsdOP">
-    <img src="https://img.shields.io/badge/Follow-@AmbsdOP-1DA1F2?style=for-the-badge&logo=x&logoColor=white" alt="Follow on X">
-  </a>
+  <img src="https://img.shields.io/badge/CUDA-12.8-76B900?style=for-the-badge&logo=nvidia" alt="CUDA 12.8">
+  <img src="https://img.shields.io/badge/Windows-10%2F11-0078D6?style=for-the-badge&logo=windows" alt="Windows">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/Git-Required-F05032?style=for-the-badge&logo=git" alt="Git Required">
+  <img src="https://img.shields.io/badge/HuggingFace-ACE--Step-FFD21E?style=for-the-badge&logo=huggingface" alt="HuggingFace">
 </p>
 
 <p align="center">
-  <a href="#-demo">Demo</a> •
-  <a href="#-why-ace-step-ui">Why ACE-Step</a> •
-  <a href="#-features">Features</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-contributing">Contributing</a>
+  <a href="https://github.com/ace-step/ACE-Step-1.5">Original Model Repo</a> •
+  <a href="https://huggingface.co/ACE-Step/Ace-Step1.5">HuggingFace Models</a> •
+  <a href="https://ace-step.github.io/ace-step-v1.5.github.io/">Project Page</a> •
+  <a href="https://arxiv.org/abs/2602.00744">Technical Report</a> •
+  <a href="https://discord.gg/PeWDxrkdj7">Discord</a>
 </p>
 
 <p align="center">
@@ -33,7 +28,12 @@
   <img src="https://img.shields.io/badge/TailwindCSS-3.x-06B6D4?style=flat-square&logo=tailwindcss" alt="TailwindCSS">
   <img src="https://img.shields.io/badge/SQLite-Local_First-003B57?style=flat-square&logo=sqlite" alt="SQLite">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
-  <img src="https://img.shields.io/github/stars/fspecii/ace-step-ui?style=flat-square" alt="Stars">
+  <img src="https://img.shields.io/github/stars/Saganaki22/ACE-Step-1.5-UI_AIO?style=flat-square" alt="AIO Stars">
+</p>
+
+<p align="center">
+  <img src="./assets/orgnization_logos.png" width="100%" alt="ACE-Step Logo">
+  <img src="docs/demo.gif" alt="ACE-Step UI Demo" width="100%">
 </p>
 
 ---
@@ -47,21 +47,25 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="ACE-Step UI - Open Source Suno Alternative" width="100%">
+  <img src="demo.gif" alt="Demo Animation" width="100%">
 </p>
-
+ 
 <p align="center">
   <em>Generate professional AI music with a Spotify-like interface - 100% free and local</em>
 </p>
 
 ---
 
-## 🚀 Why ACE-Step UI?
+## 🚀 Why ACE-Step AIO?
 
-**Tired of paying $10+/month for Suno or Udio?** ACE-Step 1.5 is the **open source Suno killer** that runs locally on your own GPU - and ACE-Step UI gives you a **beautiful, professional interface** to harness its full power.
+**Tired of paying $10+/month for Suno or Udio?** 
 
-| Feature | Suno/Udio | ACE-Step UI |
-|---------|-----------|-------------|
+This All-in-One (AIO) installer combines:
+- **[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5)** - The revolutionary open source AI music generation model (MIT License)
+- **[ACE-Step UI](https://github.com/fspecii/ace-step-ui)** - The beautiful Spotify-inspired interface (MIT License)
+
+| Feature | Suno/Udio | ACE-Step AIO |
+|---------|-----------|--------------|
 | **Cost** | $10-50/month | **FREE forever** |
 | **Privacy** | Cloud-based | **100% local** |
 | **Ownership** | Licensed | **You own everything** |
@@ -71,11 +75,71 @@
 
 ### What Makes ACE-Step 1.5 Special?
 
-- **State-of-the-art quality** rivaling commercial services
+- **State-of-the-art quality** rivaling commercial services (between Suno v4.5 and v5)
 - **Full song generation** up to 4+ minutes with vocals
 - **Runs locally** - no internet required after setup
 - **Open source** - inspect, modify, improve
-- **Active development** - constant improvements
+- **Ultra-fast**: Under 2s (A100) to 10s (RTX 3090) per full song
+
+---
+
+## 📋 Minimum Requirements
+
+| Component | Specification |
+|-----------|---------------|
+| **OS** | Windows 10/11 64-bit |
+| **GPU** | NVIDIA GPU with CUDA 12.8 support |
+| **VRAM** | **4GB minimum** (12GB+ recommended for LLM/Thinking Mode) |
+| **RAM** | 8GB system memory |
+| **Storage** | **~30GB free space** (includes ~24GB model files) |
+| **Software** | Git, Python 3.11 (included in portable package) |
+| **Internet** | Required for first-run model download only |
+
+---
+
+## 🚀 Quick Start (Windows AIO Installer)
+
+**Download the All-in-One Installer for Windows (CUDA 12.8):**
+
+📦 **[Download AceStep-1.5-UI-AIO-Installer-Windows-CUDA12.8-x64.zip](https://github.com/Saganaki22/ACE-Step-1.5-UI_AIO/releases/download/Installer/AceStep-1.5-UI-AIO-Installer-Windows-CUDA12.8-x64.zip)**
+
+*No Git required, no manual setup. The batch file handles everything automatically.*
+
+### Installation Steps
+
+1. **Download** the ZIP from the link above (~5GB)
+2. **Extract** all files to your desired installation directory
+3. **Run** `Install-ACEStep_UI_AIO.bat` as Administrator
+4. **Wait** for the automatic setup to complete (downloads ~24GB additional model files on first run)
+5. **Access** the application at `http://localhost:3000`
+
+*The installer automatically creates a desktop shortcut for future launches.*
+
+### What the Installer Does
+- ✅ Downloads the latest ACE-Step 1.5 and UI repositories (no git pull needed)
+- ✅ Installs all Python dependencies (uv, torch, etc.)
+- ✅ Downloads required AI models (~24GB) from [HuggingFace](https://huggingface.co/ACE-Step/Ace-Step1.5)
+- ✅ Configures CUDA 12.8 environment
+- ✅ Creates desktop shortcut for easy launching
+- ✅ Starts Backend + Frontend + API automatically
+
+### First Run Notes
+⚠️ **Important**: On first run, the installer will download approximately **24 GB of model files**. This may take significant time depending on your internet speed. Please be patient and do not interrupt the process.
+
+After completion, the installer automatically launches:
+- **API Server** (Port 8001)
+- **Backend** (Port 3001)  
+- **Frontend** (Port 3000)
+
+### 🛑 Stopping the Application
+
+If you need to stop all processes or are having port conflicts, run:
+
+```batch
+stop-all.bat
+```
+
+This will kill all processes on ports 3000-3008 and 8000-8008.
 
 ---
 
@@ -89,7 +153,20 @@
 | **Custom Mode** | Fine-tune BPM, key, time signature, and duration |
 | **Style Tags** | Define genre, mood, tempo, and instrumentation |
 | **Batch Generation** | Generate multiple variations at once |
-| **Thinking Mode** | Let AI enhance your prompts automatically |
+| **Thinking Mode** | Let AI enhance your prompts automatically (requires 12GB+ VRAM) |
+
+### 🤖 Gemini AI Integration (New in v0.1.1)
+**Optional AI-powered features** - Works without API keys, but enhanced with them:
+
+| Feature | Description |
+|---------|-------------|
+| **AI Generate** | Generate complete songs from simple descriptions using Google's Gemini AI (3 models available) |
+| **Model Selection** | Choose from: Gemini 3 Flash (⚡ Fast), Gemini 3 Pro (👑 Best Quality), or Gemini 2.5 Flash (💰 Cheapest) |
+| **Smart Parameters** | Auto-generates matching BPM, key signature, and time signature for your song |
+| **Detailed Styles** | Creates rich, comma-separated style descriptions (200-300 characters) |
+| **Format & Enhance** | One-click enhancement of existing lyrics and style descriptions |
+
+**Note:** These features are **completely optional**. The app works perfectly without Gemini - you can still generate music normally in Simple Mode or write your own lyrics in Custom Mode. Gemini just adds AI-assisted convenience!
 
 ### 🎨 Advanced Parameters
 | Feature | Description |
@@ -100,14 +177,6 @@
 | **Seed Control** | Reproduce exact generations for consistency |
 | **Inference Steps** | Control quality vs speed tradeoff |
 
-### 🎤 Lyrics & Prompts
-| Feature | Description |
-|---------|-------------|
-| **Lyrics Editor** | Write and format lyrics with structure tags |
-| **Format Assistant** | AI-powered caption and lyrics formatting |
-| **Prompt Templates** | Quick-start with genre presets |
-| **Reuse Prompts** | Clone settings from any previous generation |
-
 ### 🎧 Professional Interface
 | Feature | Description |
 |---------|-------------|
@@ -115,7 +184,6 @@
 | **Bottom Player** | Full-featured player with waveform and progress |
 | **Library Management** | Browse, search, and organize all your tracks |
 | **Likes & Playlists** | Organize favorites into custom playlists |
-| **Real-time Progress** | Live generation progress with queue position |
 | **LAN Access** | Use from any device on your local network |
 
 ### 🛠️ Built-in Tools
@@ -128,6 +196,23 @@
 
 ---
 
+## 🖥️ Architecture Overview
+
+<p align="center">
+    <img src="./assets/ACE-Step_framework.png" width="100%" alt="ACE-Step Framework">
+</p>
+
+**Core Components:**
+- **DiT (Diffusion Transformer)**: Audio generation engine
+  - `acestep-v15-turbo`: 8-step generation, fastest option (default)
+  - `acestep-v15-sft`: 50-step, highest quality
+- **LM (Language Model)**: Query understanding and metadata generation
+  - `acestep-5Hz-lm-0.6B`: Lightweight (6-12GB VRAM)
+  - `acestep-5Hz-lm-1.7B`: Balanced (12-16GB VRAM) 
+  - `acestep-5Hz-lm-4B`: Best quality (16GB+ VRAM)
+
+---
+
 ## 💻 Tech Stack
 
 | Layer | Technologies |
@@ -135,261 +220,30 @@
 | **Frontend** | React 18, TypeScript, TailwindCSS, Vite |
 | **Backend** | Express.js, SQLite, better-sqlite3 |
 | **AI Engine** | [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) |
+| **AI Assistant** | Google Gemini API |
 | **Audio Tools** | AudioMass, Demucs, FFmpeg |
-
----
-
-## 📋 Requirements
-
-| Requirement | Specification |
-|-------------|---------------|
-| **Node.js** | 18 or higher |
-| **Python** | 3.10+ (3.11 recommended) OR Windows Portable Package |
-| **NVIDIA GPU** | 4GB+ VRAM (works without LLM), 12GB+ recommended (with LLM) |
-| **CUDA** | 12.8 (for Windows Portable Package) |
-| **FFmpeg** | For audio processing |
-| **uv** | Python package manager (recommended for standard install) |
-
----
-
-## ⚡ Quick Start
-
-### 🪟 Windows - One-Click Start (Easiest!)
-```batch
-cd ace-step-ui
-start-all.bat
-```
-**That's it!** This starts everything: API + Backend + Frontend in one command.
-
-> **Note:** By default, it looks for ACE-Step in `..\ACE-Step-1.5`.
-> If yours is elsewhere, set `ACESTEP_PATH` first:
-> ```batch
-> set ACESTEP_PATH=C:\path\to\ACE-Step-1.5
-> start-all.bat
-> ```
-
-### 🪟 Windows - Manual Start
-```batch
-REM 1. Start ACE-Step API
-cd C:\ACE-Step-1.5
-python_embeded\python acestep\api_server.py
-
-REM 2. Start ACE-Step UI (in another terminal)
-cd ace-step-ui
-start.bat
-```
-
-### Linux / macOS - One-Click Start (Easiest!)
-```bash
-cd ace-step-ui
-./start-all.sh
-```
-**That's it!** This starts everything: API + Backend + Frontend in one command.
-
-> **Note:** By default, it looks for ACE-Step in `../ACE-Step-1.5`.
-> If yours is elsewhere, set `ACESTEP_PATH` first:
-> ```bash
-> export ACESTEP_PATH=/path/to/ACE-Step-1.5
-> ./start-all.sh
-> ```
-> **To stop:** `./stop-all.sh`
-
-### Linux / macOS - Manual Start
-```bash
-# 1. Start ACE-Step API (in ACE-Step-1.5 directory)
-cd /path/to/ACE-Step-1.5
-uv run acestep-api --port 8001
-
-# 2. Start ACE-Step UI (in another terminal)
-cd ace-step-ui
-./start.sh
-```
-
-### Windows (Standard Installation)
-```batch
-REM 1. Start ACE-Step API (in ACE-Step-1.5 directory)
-cd C:\path\to\ACE-Step-1.5
-uv run acestep-api --port 8001
-
-REM 2. Start ACE-Step UI (in another terminal)
-cd ace-step-ui
-start.bat
-```
-
-Open **http://localhost:3000** and start creating!
-
----
-
-## 📦 Installation
-
-### 1. Install ACE-Step (The AI Engine)
-
-#### 🪟 Windows Portable Package (Recommended for Windows)
-
-**The easiest way to get started on Windows!** This package includes everything pre-configured:
-
-1. **Download** [ACE-Step-1.5.7z](https://files.acemusic.ai/acemusic/win/ACE-Step-1.5.7z) (~5GB)
-2. **Extract** to `C:\ACE-Step-1.5` (or your preferred location)
-3. **Done!** The package includes `python_embeded` with all dependencies
-
-✅ **Works with 4GB GPU** - No LLM installation required
-✅ **CUDA 12.8** included
-✅ **Zero setup hassle**
-
-> **Note:** Thinking Mode (LLM features) is automatically disabled on GPUs with <12GB VRAM. You can still enable it manually if you have 12GB+.
-
-#### Standard Installation (All Platforms)
-
-```bash
-# Clone ACE-Step 1.5 - the open source Suno alternative
-git clone https://github.com/ace-step/ACE-Step-1.5
-cd ACE-Step-1.5
-
-# Create virtual environment and install
-uv venv
-uv pip install -e .
-
-# Models download automatically on first run (~5GB)
-cd ..
-```
-
-### 2. Install ACE-Step UI (This Repository)
-
-#### Linux / macOS
-```bash
-# Clone the UI
-git clone https://github.com/fspecii/ace-step-ui
-cd ace-step-ui
-
-# Run setup script (installs all dependencies)
-./setup.sh
-```
-
-#### Windows
-```batch
-REM Clone the UI
-git clone https://github.com/fspecii/ace-step-ui
-cd ace-step-ui
-
-REM Run setup script (installs all dependencies)
-setup.bat
-```
-
-#### Manual Installation (All Platforms)
-
-```bash
-# Install frontend dependencies
-npm install
-
-# Install server dependencies
-cd server
-npm install
-cd ..
-
-# Copy environment file
-# Linux/macOS:
-cp server/.env.example server/.env
-# Windows:
-copy server\.env.example server\.env
-```
 
 ---
 
 ## 🎮 Usage
 
-### Step 1: Start ACE-Step API Server
+Once installed via the AIO package:
 
-**🪟 Windows Portable Package:**
-```batch
-cd C:\ACE-Step-1.5
-python_embeded\python acestep\api_server.py
-```
+1. **Double-click** the desktop shortcut (or run `Install-ACEStep_UI_AIO.bat` again)
+2. Wait for the API server to show "Application startup complete"
+3. Open **http://localhost:3000** in your browser
+4. Start generating!
 
-**Linux / macOS:**
-```bash
-cd /path/to/ACE-Step-1.5
-uv run acestep-api --port 8001
-```
+**Using Gemini AI Features:**
+1. Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Add it to your `.env` file: `GEMINI_API_KEY=your_key_here`
+3. In Simple Mode, select your preferred Gemini model (⚡ Flash, 👑 Pro, or 💰 2.5 Flash)
+4. Enter a song description and click "AI Generate"
+5. Or use the sparkles ✨ button in Custom Mode to enhance existing lyrics/style
 
-**Windows (Standard Installation):**
-```batch
-cd C:\path\to\ACE-Step-1.5
-uv run acestep-api --port 8001
-```
-
-Wait for "Application startup complete" before proceeding.
-
-### Step 2: Start ACE-Step UI
-
-**Linux / macOS:**
-```bash
-cd ace-step-ui
-./start.sh
-```
-
-**Windows:**
-```batch
-cd ace-step-ui
-start.bat
-```
-
-### Step 3: Create Music!
-
-| Access | URL |
-|--------|-----|
-| Local | http://localhost:3000 |
-| LAN (other devices) | http://YOUR_IP:3000 |
-
----
-
-## ⚙️ Configuration
-
-Edit `server/.env`:
-
-```env
-# Server
-PORT=3001
-
-# ACE-Step API (seamless integration)
-ACESTEP_API_URL=http://localhost:8001
-
-# Database (local-first, no cloud)
-DATABASE_PATH=./data/acestep.db
-
-# Optional: Pexels API for video backgrounds
-PEXELS_API_KEY=your_key_here
-```
-
----
-
-## 🎼 Generation Modes
-
-### Simple Mode
-Just describe what you want. ACE-Step handles the rest.
-
-> "An upbeat pop song about summer adventures with catchy hooks"
-
-### Custom Mode
-Full control over every parameter:
-
-| Parameter | Description |
-|-----------|-------------|
-| **Lyrics** | Full lyrics with `[Verse]`, `[Chorus]` tags |
-| **Style** | Genre, mood, instruments, tempo |
-| **Duration** | 30-240 seconds |
-| **BPM** | 60-200 beats per minute |
-| **Key** | Musical key (C major, A minor, etc.) |
-
----
-
-## 🔧 Built-in Tools
-
-| Tool | Description |
-|------|-------------|
-| **🎚️ Audio Editor** | Cut, trim, fade, and apply effects |
-| **🎤 Stem Extraction** | Separate vocals, drums, bass, other |
-| **🎬 Video Generator** | Create music videos with stock footage |
-| **🎨 Album Art** | Auto-generated gradient covers |
+**Access from other devices on your LAN:**
+- Find your PC's IP address
+- Access via `http://YOUR_IP:3000`
 
 ---
 
@@ -397,69 +251,113 @@ Full control over every parameter:
 
 | Issue | Solution |
 |-------|----------|
-| **ACE-Step API not reachable** | Ensure API server is running (see Usage section) |
-| **CUDA out of memory** | Close other GPU apps, reduce duration, or disable Thinking Mode |
-| **4GB GPU - Out of memory** | Make sure **Thinking Mode is OFF** (it's off by default). LLM features require 12GB+ |
-| **AttributeError: 'NoneType'** | Update to latest ACE-Step-1.5 (fix merged in PR #109) |
-| **Songs show 0:00 duration** | Install FFmpeg: `sudo apt install ffmpeg` (Linux) or download from [ffmpeg.org](https://ffmpeg.org) (Windows) |
-| **LAN access not working** | Check firewall allows ports 3000 and 3001 |
+| **CUDA out of memory** | Disable "Thinking Mode" in settings (requires 12GB+ VRAM) or reduce duration |
+| **4GB GPU crashes** | Ensure Thinking Mode is OFF. Use Simple Mode only. |
+| **Models won't download** | Check internet connection; installer will retry automatically |
+| **Port conflicts** | Ensure ports 3000, 3001, and 8001 are not in use by other applications |
+| **Antivirus blocks** | Add exception for the installation directory |
+| **Songs show 0:00 duration** | Install FFmpeg if not using the AIO package |
+| **Gemini API errors** | Check your API key in `.env` file and ensure you have internet connection |
 
 ---
 
-## 🤝 Contributing
+## ⚙️ Configuration
 
-**We need your help to make ACE-Step UI even better!**
+### Environment Variables
 
-This is a community-driven project and contributions are what make open source amazing. Whether you're fixing bugs, adding features, improving documentation, or sharing ideas - every contribution counts!
+The project includes `.env.example` files that you can copy and edit:
 
-### Ways to Contribute
+1. **Copy the example file:**
+   ```bash
+   # On Windows:
+   copy .env.example .env
+   
+   # On Linux/macOS:
+   cp .env.example .env
+   ```
 
-- 🐛 **Report bugs** - Found an issue? Open a GitHub issue
-- 💡 **Suggest features** - Have an idea? We'd love to hear it
-- 🔧 **Submit PRs** - Code contributions are always welcome
-- 📖 **Improve docs** - Help others get started
-- ⭐ **Star the repo** - Show your support!
+2. **Edit the `.env` file** in the **`ace-step-ui/` folder** (root of the UI project) with the following options:
 
-### How to Contribute
+#### ACE-Step Model Configuration
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```env
+# Choose your model configuration (uncomment one):
+
+# Standard Configuration (Default - Balanced)
+ACESTEP_CONFIG_PATH=acestep-v15-turbo
+ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-1.7B
+ACESTEP_DEVICE=auto
+ACESTEP_LM_BACKEND=vllm
+
+# High Quality Configuration (Requires 16GB+ VRAM)
+# ACESTEP_CONFIG_PATH=acestep-v15-turbo
+# ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B
+# ACESTEP_DEVICE=auto
+# ACESTEP_LM_BACKEND=vllm
+```
+
+**Model Options:**
+- `acestep-5Hz-lm-0.6B` - Lightweight (6-12GB VRAM)
+- `acestep-5Hz-lm-1.7B` - Balanced (12-16GB VRAM) ⭐ **Default**
+- `acestep-5Hz-lm-4B` - Best quality (16GB+ VRAM)
+
+#### API Keys (Optional)
+
+These keys enable additional features but are **not required** for the app to work:
+
+```env
+# Pexels API Key - For video backgrounds in Video Generator
+# Get a free API key at: https://www.pexels.com/api/
+PEXELS_API_KEY=your_pexels_api_key_here
+
+# Gemini API Key - For AI-powered lyrics and style generation
+# Get a free API key at: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+**To add API keys:**
+1. Visit the links above to get your free API keys
+2. Open the `.env` file in the **`ace-step-ui/` folder** (not the `server/` folder)
+3. Replace `your_pexels_api_key_here` and/or `your_gemini_api_key_here` with your actual keys
+4. Save the file
+5. Restart the application if it's running
+
+**Important:** There are two `.env` files:
+- **`ace-step-ui/.env`** ← **Use this one** for API keys (Gemini, Pexels)
+- `ace-step-ui/server/.env` ← This is for server-only settings
+
+**What happens if you don't add the Gemini key:**
+- ✅ **App works perfectly** - All core music generation features work
+- ✅ **Simple Mode** works normally - you can still generate music by entering descriptions
+- ⚠️ **AI Generate button** shows a helpful message asking you to add an API key
+- ⚠️ **Format/Enhance button** won't use AI enhancement (shows "check API key" message)
+
+**The app is fully functional without Gemini!** The AI features are just a bonus enhancement. You can still:
+- Generate music normally in Simple Mode
+- Write your own lyrics and styles in Custom Mode
+- Use all other features (audio editor, video generator, playlists, etc.)
+
+**Note:** The `.env` file is automatically excluded from Git - your API keys stay private!
 
 ---
 
-## 📣 Stay Connected
+## 🙏 Credits & Attribution
 
-<p align="center">
-  <a href="https://www.youtube.com/@Ambsd-yy7os">
-    <img src="https://img.shields.io/badge/YouTube-Subscribe_for_Tutorials-FF0000?style=for-the-badge&logo=youtube" alt="YouTube">
-  </a>
-</p>
+This AIO installer combines two amazing open source projects:
 
-<p align="center">
-  <a href="https://x.com/AmbsdOP">
-    <img src="https://img.shields.io/badge/X_(Twitter)-Follow_for_Updates-1DA1F2?style=for-the-badge&logo=x&logoColor=white" alt="X/Twitter">
-  </a>
-</p>
+- **[ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5)** - The revolutionary open source AI music generation model
+  - GitHub: https://github.com/ace-step/ACE-Step-1.5
+  - HuggingFace: https://huggingface.co/ACE-Step/Ace-Step1.5
+  - License: MIT
 
-<p align="center">
-  <strong>Subscribe and follow for:</strong><br>
-  🎥 Video tutorials and demos<br>
-  🚀 New feature announcements<br>
-  💡 Tips and tricks<br>
-  🎵 AI music generation news
-</p>
+- **[ACE-Step UI](https://github.com/fspecii/ace-step-ui)** - The beautiful web interface for ACE-Step
+  - GitHub: https://github.com/fspecii/ace-step-ui
+  - License: MIT
 
----
-
-## 🙏 Credits
-
-- **[ACE-Step](https://github.com/ace-step/ACE-Step-1.5)** - The revolutionary open source AI music generation model
 - **[AudioMass](https://github.com/pkalogiros/AudioMass)** - Web audio editor
 - **[Demucs](https://github.com/facebookresearch/demucs)** - Audio source separation
 - **[Pexels](https://www.pexels.com)** - Stock video backgrounds
+- **[Google Gemini](https://ai.google.dev/)** - AI-powered lyrics and style generation
 
 ---
 
@@ -467,16 +365,29 @@ This is a community-driven project and contributions are what make open source a
 
 This project is open source under the [MIT License](LICENSE).
 
+**Note**: This AIO installer is a community convenience package. All credit for the AI model goes to the ACE-Step team, and all credit for the UI goes to the ACE-Step UI team.
+
+---
+
+## 📝 Changelog
+
+### v0.1.1 - Gemini AI Integration
+- ✨ Added Google Gemini AI integration for intelligent song generation
+- 🎯 Three model options: Gemini 3 Flash (⚡), Gemini 3 Pro (👑), Gemini 2.5 Flash (💰)
+- 🎵 AI Generate button in Simple Mode - create complete songs from descriptions
+- ✨ Format & Enhance button in Custom Mode - improve existing lyrics and styles
+- 🎼 Auto-generation of BPM, key signature, and time signature
+- 📝 Detailed style descriptions (200-300 characters) with rich tags
+- 🔄 Retry logic with exponential backoff for API reliability
+- 🔔 Toast notifications for better user feedback
+
 ---
 
 <p align="center">
-  <strong>⭐ If ACE-Step UI helps you create amazing music, please star this repo! ⭐</strong>
+  <strong>⭐ If this AIO installer helps you create amazing music, please star the repo! ⭐</strong>
 </p>
 
 <p align="center">
-  <em>Made with ❤️ for the open-source AI music community</em>
-</p>
-
-<p align="center">
-  <strong>Stop paying for Suno. Start creating with ACE-Step.</strong>
+  <em>Stop paying for Suno. Start creating with ACE-Step.</em><br>
+  <strong>Made with ❤️ for the open-source AI music community</strong>
 </p>

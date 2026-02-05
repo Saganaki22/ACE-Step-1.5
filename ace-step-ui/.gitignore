@@ -21,7 +21,11 @@ server/data/*.db-shm
 server/data/*.db-wal
 !server/data/.gitkeep
 
-# Generated audio files
+# Generated audio files (all locations)
+*.mp3
+*.mp4
+*.wav
+*.flac
 server/public/audio/*.mp3
 server/public/audio/*.flac
 server/public/audio/*.wav
@@ -93,3 +97,12 @@ wavacity-editor/
 
 # Script logs
 logs/
+
+# Batch files
+AceStep-1.5.bat
+
+# Checkpoints folder
+checkpoints/
+
+# Output folders
+output/

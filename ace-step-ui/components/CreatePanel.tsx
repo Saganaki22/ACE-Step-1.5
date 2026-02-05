@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, ChevronDown, Settings2, Trash2, Music2, Sliders, Dices, Hash, RefreshCw, Plus, Upload, Play, Pause } from 'lucide-react';
+import { Sparkles, ChevronDown, Settings2, Trash2, Music2, Sliders, Dices, Hash, RefreshCw, Plus, Upload, Play, Pause, Wand2 } from 'lucide-react';
 import { GenerationParams, Song } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { generateApi } from '../services/api';
+import { generateSongDataWithRetry, formatSongData, GeminiModel, MODEL_OPTIONS, GeneratedSongData } from '../services/geminiService';
+import { ToastType } from './Toast';
 
 interface ReferenceTrack {
   id: string;
@@ -19,6 +21,7 @@ interface CreatePanelProps {
   onGenerate: (params: GenerationParams) => void;
   isGenerating: boolean;
   initialData?: { song: Song, timestamp: number } | null;
+  onShowToast?: (message: string, type: ToastType) => void;
 }
 
 const KEY_SIGNATURES = [
@@ -98,7 +101,7 @@ const VOCAL_LANGUAGES = [
   { value: 'zh', label: 'Chinese (Mandarin)' },
 ];
 
-export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, initialData }) => {
+export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, initialData, onShowToast }) => {
   const { isAuthenticated, token } = useAuth();
 
   // Mode
@@ -174,6 +177,9 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [isUploadingSource, setIsUploadingSource] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isFormatting, setIsFormatting] = useState(false);
+  const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false);
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState<GeminiModel>('gemini-flash-latest');
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const [showAudioModal, setShowAudioModal] = useState(false);
@@ -308,42 +314,127 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     e.target.value = '';
   };
 
-  // Format handler - uses LLM to enhance style and auto-fill parameters
+  // Format handler - uses Gemini to enhance style and auto-fill parameters
   const handleFormat = async () => {
-    if (!token || !style.trim()) return;
+    if (!style.trim()) {
+      onShowToast?.('Please enter a style first', 'error');
+      return;
+    }
     setIsFormatting(true);
     try {
-      const result = await generateApi.formatInput({
-        caption: style,
-        lyrics: lyrics,
-        bpm: bpm > 0 ? bpm : undefined,
-        duration: duration > 0 ? duration : undefined,
-        keyScale: keyScale || undefined,
-        timeSignature: timeSignature || undefined,
-        temperature: lmTemperature,
-        topK: lmTopK > 0 ? lmTopK : undefined,
-        topP: lmTopP,
-      }, token);
+      // Use Gemini to format/enhance the input with the selected model
+      const result = await formatSongData(style, lyrics, selectedGeminiModel);
 
-      if (result.success) {
-        // Update fields with LLM-generated values
-        if (result.caption) setStyle(result.caption);
+      if (result.title !== 'Generation Failed') {
+        // Update fields with Gemini-generated values
+        // The style comes back as a detailed comma-separated string
+        if (result.tags && result.tags.length > 0) {
+          setStyle(result.tags.join(', '));
+        }
         if (result.lyrics) setLyrics(result.lyrics);
+        if (result.title) setTitle(result.title);
         if (result.bpm && result.bpm > 0) setBpm(result.bpm);
-        if (result.duration && result.duration > 0) setDuration(result.duration);
-        if (result.key_scale) setKeyScale(result.key_scale);
-        if (result.time_signature) setTimeSignature(result.time_signature);
-        if (result.language) setVocalLanguage(result.language);
+        
+        // Validate and set key signature
+        if (result.keyScale) {
+          const normalizedKey = result.keyScale.trim();
+          const matchedKey = KEY_SIGNATURES.find(k => 
+            k.toLowerCase() === normalizedKey.toLowerCase()
+          );
+          if (matchedKey) setKeyScale(matchedKey);
+        }
+        
+        // Validate and set time signature
+        if (result.timeSignature) {
+          const normalizedTime = result.timeSignature.trim();
+          const matchedTime = TIME_SIGNATURES.find(t => t === normalizedTime);
+          if (matchedTime) setTimeSignature(matchedTime);
+        }
+        
         setIsFormatCaption(true);
+        onShowToast?.('Style enhanced successfully!', 'success');
       } else {
-        console.error('Format failed:', result.error || result.status_message);
-        alert(result.error || result.status_message || 'Format failed. Make sure the LLM is initialized.');
+        console.error('Format failed:', result);
+        onShowToast?.('Format failed. Please check your Gemini API key.', 'error');
       }
     } catch (err) {
       console.error('Format error:', err);
-      alert('Format failed. The LLM may not be available.');
+      onShowToast?.('Format failed. Please check your Gemini API key.', 'error');
     } finally {
       setIsFormatting(false);
+    }
+  };
+
+  // AI Generate handler - uses Gemini to generate lyrics, title, and style from description
+  const handleAIGenerate = async () => {
+    if (!songDescription.trim()) {
+      onShowToast?.('Please enter a song description first', 'error');
+      return;
+    }
+    setIsGeneratingLyrics(true);
+    try {
+      const result = await generateSongDataWithRetry(songDescription, '', selectedGeminiModel);
+      if (result.title && result.title !== 'Generation Failed') {
+        // First set all the values BEFORE switching modes
+        setTitle(result.title);
+        setLyrics(result.lyrics);
+        setStyle(result.tags.join(', '));
+        
+        // Auto-fill BPM, key, and time signature from AI
+        if (result.bpm && result.bpm > 0) {
+          console.log('Setting BPM:', result.bpm);
+          setBpm(result.bpm);
+        }
+        
+        // Validate and set key signature
+        if (result.keyScale) {
+          const normalizedKey = result.keyScale.trim();
+          console.log('AI returned key:', result.keyScale, 'Normalized:', normalizedKey);
+          
+          // Check if the key exists in our list (case-insensitive)
+          const matchedKey = KEY_SIGNATURES.find(k => 
+            k.toLowerCase() === normalizedKey.toLowerCase()
+          );
+          
+          if (matchedKey) {
+            console.log('Matched key:', matchedKey);
+            setKeyScale(matchedKey);
+          } else {
+            console.warn('Key not found in KEY_SIGNATURES:', normalizedKey);
+            setKeyScale('C major');
+          }
+        }
+        
+        // Validate and set time signature
+        if (result.timeSignature) {
+          const normalizedTime = result.timeSignature.trim();
+          console.log('AI returned time signature:', result.timeSignature, 'Normalized:', normalizedTime);
+          
+          // Check if time signature exists in our list
+          const matchedTime = TIME_SIGNATURES.find(t => t === normalizedTime);
+          
+          if (matchedTime) {
+            console.log('Matched time signature:', matchedTime);
+            setTimeSignature(matchedTime);
+          } else {
+            console.warn('Time signature not found in TIME_SIGNATURES:', normalizedTime);
+            setTimeSignature('4/4');
+          }
+        }
+        
+        // Small delay to ensure state updates before mode switch
+        setTimeout(() => {
+          setCustomMode(true);
+          onShowToast?.('Song generated successfully!', 'success');
+        }, 100);
+      } else {
+        onShowToast?.('Failed to generate song data. Please check your Gemini API key.', 'error');
+      }
+    } catch (err) {
+      console.error('AI Generate error:', err);
+      onShowToast?.('Failed to generate song data. Please check your Gemini API key.', 'error');
+    } finally {
+      setIsGeneratingLyrics(false);
     }
   };
 
@@ -645,8 +736,20 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           <div className="space-y-5">
             {/* Song Description */}
             <div className="bg-white dark:bg-suno-card rounded-xl border border-zinc-200 dark:border-white/5 overflow-hidden">
-              <div className="px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/5">
-                Describe Your Song
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/5">
+                <span className="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Describe Your Song</span>
+                <button
+                  onClick={handleAIGenerate}
+                  disabled={isGeneratingLyrics || !songDescription.trim()}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                    isGeneratingLyrics
+                      ? 'bg-pink-500 text-white animate-pulse shadow-lg shadow-pink-500/50'
+                      : 'bg-pink-500 hover:bg-pink-600 text-white'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <Wand2 size={12} className={isGeneratingLyrics ? 'animate-spin' : ''} />
+                  {isGeneratingLyrics ? 'Generating...' : 'AI Generate'}
+                </button>
               </div>
               <textarea
                 value={songDescription}
@@ -654,6 +757,41 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                 placeholder="A happy pop song about summer adventures with friends..."
                 className="w-full h-32 bg-transparent p-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none resize-none"
               />
+            </div>
+
+            {/* AI Model Selector */}
+            <div className="bg-white dark:bg-suno-card rounded-xl border border-zinc-200 dark:border-white/5 overflow-hidden">
+              <div className="px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/5">
+                AI Model
+              </div>
+              <div className="p-3 space-y-2">
+                {MODEL_OPTIONS.map((model) => (
+                  <button
+                    key={model.id}
+                    onClick={() => setSelectedGeminiModel(model.id)}
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-all ${
+                      selectedGeminiModel === model.id
+                        ? 'bg-pink-500/10 border border-pink-500/30'
+                        : 'hover:bg-zinc-100 dark:hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <span className="text-lg">{model.icon}</span>
+                    <div className="flex-1">
+                      <div className={`text-sm font-medium ${
+                        selectedGeminiModel === model.id ? 'text-pink-600 dark:text-pink-400' : 'text-zinc-900 dark:text-white'
+                      }`}>
+                        {model.name}
+                      </div>
+                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {model.description}
+                      </div>
+                    </div>
+                    {selectedGeminiModel === model.id && (
+                      <div className="w-2 h-2 rounded-full bg-pink-500" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Vocal Language (Simple) */}
