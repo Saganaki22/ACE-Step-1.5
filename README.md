@@ -1,5 +1,4 @@
 <h1 align="center">ACE-Step 1.5 + UI AIO</h1>
-<h2 align="center">All-in-One Open Source Music Generation</h2>
 
 <p align="center">
   <strong>The Ultimate Open Source Suno Alternative</strong><br>
@@ -47,6 +46,10 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="demo.gif" alt="Demo Animation" width="100%">
+</p>
+ 
 <p align="center">
   <em>Generate professional AI music with a Spotify-like interface - 100% free and local</em>
 </p>
